@@ -1,3 +1,4 @@
+import shutil
 import os
 from typing import List
 
@@ -11,39 +12,48 @@ from diffusers import (
     EulerDiscreteScheduler,
     EulerAncestralDiscreteScheduler,
     DPMSolverMultistepScheduler,
+    ControlNetModel,
+    StableDiffusionControlNetPipeline,
 )
-from diffusers.pipelines.stable_diffusion.safety_checker import (
-    StableDiffusionSafetyChecker,
-)
+from diffusers.utils import load_image
 
 
-MODEL_ID = "stabilityai/stable-diffusion-2-1"
+MODEL_ID = "./weights"
 MODEL_CACHE = "diffusers-cache"
-SAFETY_MODEL_ID = "CompVis/stable-diffusion-safety-checker"
+CONTROL_MODEL_ID = "lllyasviel/sd-controlnet-scribble"
 
 
 class Predictor(BasePredictor):
     def setup(self):
         """Load the model into memory to make running multiple predictions efficient"""
         print("Loading pipeline...")
-        safety_checker = StableDiffusionSafetyChecker.from_pretrained(
-            SAFETY_MODEL_ID,
+        # self.pipe = StableDiffusionPipeline.from_pretrained(
+        #     MODEL_ID,
+        #     cache_dir=MODEL_CACHE,
+        #     local_files_only=True,
+        # ).to("cuda")
+
+        controlnet = ControlNetModel.from_pretrained(
+            CONTROL_MODEL_ID,
+            torch_dtype=torch.float16,
             cache_dir=MODEL_CACHE,
-            local_files_only=True,
-        )
-        self.pipe = StableDiffusionPipeline.from_pretrained(
+        ).to("cuda")
+        self.pipe = StableDiffusionControlNetPipeline.from_pretrained(
             MODEL_ID,
-            safety_checker=safety_checker,
+            controlnet=controlnet,
+            torch_dtype=torch.float16,
             cache_dir=MODEL_CACHE,
-            local_files_only=True,
         ).to("cuda")
 
     @torch.inference_mode()
     def predict(
         self,
+        scribble: Path = Input(
+            description="Scribble image to use for guidance",
+        ),
         prompt: str = Input(
             description="Input prompt",
-            default="a photo of an astronaut riding a horse on mars",
+            default="a photo of bfirsh",
         ),
         negative_prompt: str = Input(
             description="Specify things to not see in the output",
@@ -52,12 +62,12 @@ class Predictor(BasePredictor):
         width: int = Input(
             description="Width of output image. Maximum size is 1024x768 or 768x1024 because of memory limits",
             choices=[128, 256, 384, 448, 512, 576, 640, 704, 768, 832, 896, 960, 1024],
-            default=768,
+            default=512,
         ),
         height: int = Input(
             description="Height of output image. Maximum size is 1024x768 or 768x1024 because of memory limits",
             choices=[128, 256, 384, 448, 512, 576, 640, 704, 768, 832, 896, 960, 1024],
-            default=768,
+            default=512,
         ),
         prompt_strength: float = Input(
             description="Prompt strength when using init image. 1.0 corresponds to full destruction of information in init image",
@@ -92,6 +102,14 @@ class Predictor(BasePredictor):
         ),
     ) -> List[Path]:
         """Run a single prediction on the model"""
+
+        print(scribble)
+        if os.path.exists("input.png"):
+            os.unlink("input.png")
+        shutil.copy(scribble, "input.png")
+        image = load_image('input.png')
+        print(image)
+
         if seed is None:
             seed = int.from_bytes(os.urandom(2), "big")
         print(f"Using seed: {seed}")
@@ -106,6 +124,7 @@ class Predictor(BasePredictor):
         generator = torch.Generator("cuda").manual_seed(seed)
         output = self.pipe(
             prompt=[prompt] * num_outputs if prompt is not None else None,
+            image=image,
             negative_prompt=[negative_prompt] * num_outputs
             if negative_prompt is not None
             else None,
