@@ -11,3 +11,4 @@ The weights are then added as part of the Dreambooth API.
 - [ ] control-net 1.5
 - [ ] long prompt weights
 - [ ] normal stable diffusion (txt2img, img2img, inpainting?)
+- [ ] LoRA inference + Dreambooth?
