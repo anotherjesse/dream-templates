@@ -13,3 +13,8 @@ This repository is meant to build a fully functional Cog model for replicate tha
 
 The weights are then added as part of the Dreambooth API.
 
+## TODO
+
+- [ ] process / makefile to build them
+- [ ] schedulers?
+- [ ] safety_checker missing issues?
