@@ -7,11 +7,6 @@ This is an implementation of the [Diffusers Stable Diffusion v1.5](https://huggi
 - [Cog packages machine learning models as standard containers.](https://github.com/replicate/cog) 
 - [Dreambooth API](https://replicate.com/blog/dreambooth-api)
 
-## Templates?
-
-This repository is meant to build a fully functional Cog model for replicate that is missing it Stable Diffusion weights.
-
-The weights are then added as part of the Dreambooth API.
 
 ## TODO
 
