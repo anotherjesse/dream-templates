@@ -26,6 +26,10 @@ class Predictor(BasePredictor):
         """Load the model into memory to make running multiple predictions efficient"""
         print("Loading pipeline...")
 
+        if not os.path.exists(settings.BASE_MODEL_PATH):
+            self.real = False
+            return
+
         controlnet = ControlNetModel.from_pretrained(
             settings.CONTROLNET_MODEL,
             torch_dtype=torch.float16,
@@ -38,6 +42,7 @@ class Predictor(BasePredictor):
             torch_dtype=torch.float16,
             cache_dir=settings.MODEL_CACHE,
         ).to("cuda")
+        self.real = True
 
     @torch.inference_mode()
     def predict(
@@ -102,6 +107,9 @@ class Predictor(BasePredictor):
         ),
     ) -> List[Path]:
         """Run a single prediction on the model"""
+
+        if not self.real:
+            raise RuntimeError("This is a template, not a real model - add weights")
 
         if os.path.exists("control.png"):
             os.unlink("control.png")
