@@ -1,0 +1,14 @@
+build:
+  gpu: true
+  cuda: "11.6"
+  python_version: "3.8"
+  python_packages:
+    - "diffusers==0.14.0"
+    - "opencv-contrib-python==4.6.0.66"
+    - "torch==2.0.0"
+    - "ftfy==6.1.1"
+    - "scipy==1.9.3"
+    - "transformers==4.27.1"
+    - "accelerate==0.17.1"
+
+predict: "predict.py:Predictor"

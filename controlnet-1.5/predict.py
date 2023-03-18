@@ -17,32 +17,25 @@ from diffusers import (
 )
 from diffusers.utils import load_image
 
-
-MODEL_ID = "./weights"
-MODEL_CACHE = "diffusers-cache"
-CONTROL_MODEL_ID = "lllyasviel/sd-controlnet-scribble"
+import settings
 
 
 class Predictor(BasePredictor):
     def setup(self):
         """Load the model into memory to make running multiple predictions efficient"""
         print("Loading pipeline...")
-        # self.pipe = StableDiffusionPipeline.from_pretrained(
-        #     MODEL_ID,
-        #     cache_dir=MODEL_CACHE,
-        #     local_files_only=True,
-        # ).to("cuda")
 
         controlnet = ControlNetModel.from_pretrained(
-            CONTROL_MODEL_ID,
+            settings.CONTROLNET_MODEL,
             torch_dtype=torch.float16,
-            cache_dir=MODEL_CACHE,
+            cache_dir=settings.MODEL_CACHE,
+            local_files_only=True,
         ).to("cuda")
         self.pipe = StableDiffusionControlNetPipeline.from_pretrained(
-            MODEL_ID,
+            settings.BASE_MODEL_PATH,
             controlnet=controlnet,
             torch_dtype=torch.float16,
-            cache_dir=MODEL_CACHE,
+            cache_dir=settings.MODEL_CACHE,
         ).to("cuda")
 
     @torch.inference_mode()
