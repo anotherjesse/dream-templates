@@ -50,15 +50,9 @@ class Predictor(BasePredictor):
         control_image: Path = Input(
             description="Image to use for guidance based on canny filter",
         ),
-        low_threshold: int = Input(
-            description="Low threshold for canny filter", default=100
-        ),
-        high_threshold: int = Input(
-            description="High threshold for canny filter", default=200
-        ),
         prompt: str = Input(
             description="Input prompt",
-            default="a photo of bfirsh",
+            default="photo of cjw person",
         ),
         negative_prompt: str = Input(
             description="Specify things to not see in the output",
@@ -73,6 +67,12 @@ class Predictor(BasePredictor):
             description="Height of output image. Maximum size is 1024x768 or 768x1024 because of memory limits",
             choices=[128, 256, 384, 448, 512, 576, 640, 704, 768, 832, 896, 960, 1024],
             default=512,
+        ),
+        low_threshold: int = Input(
+            description="Low threshold for canny filter", default=100
+        ),
+        high_threshold: int = Input(
+            description="High threshold for canny filter", default=200
         ),
         prompt_strength: float = Input(
             description="Prompt strength when using init image. 1.0 corresponds to full destruction of information in init image",
