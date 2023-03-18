@@ -18,6 +18,7 @@ from diffusers import (
 from diffusers.utils import load_image
 
 import settings
+import preprocess
 
 
 class Predictor(BasePredictor):
@@ -41,8 +42,14 @@ class Predictor(BasePredictor):
     @torch.inference_mode()
     def predict(
         self,
-        scribble: Path = Input(
-            description="Scribble image to use for guidance",
+        control_image: Path = Input(
+            description="Image to use for guidance based on canny filter",
+        ),
+        low_threshold: int = Input(
+            description="Low threshold for canny filter", default=100
+        ),
+        high_threshold: int = Input(
+            description="High threshold for canny filter", default=200
         ),
         prompt: str = Input(
             description="Input prompt",
@@ -96,12 +103,11 @@ class Predictor(BasePredictor):
     ) -> List[Path]:
         """Run a single prediction on the model"""
 
-        print(scribble)
-        if os.path.exists("input.png"):
-            os.unlink("input.png")
-        shutil.copy(scribble, "input.png")
-        image = load_image('input.png')
-        print(image)
+        if os.path.exists("control.png"):
+            os.unlink("control.png")
+        shutil.copy(control_image, "control.png")
+        image = load_image("control.png")
+        image = preprocess.canny(image, low_threshold, high_threshold)
 
         if seed is None:
             seed = int.from_bytes(os.urandom(2), "big")

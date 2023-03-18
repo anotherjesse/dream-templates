@@ -12,4 +12,5 @@ This is an implementation of the [Diffusers Stable Diffusion v1.5](https://huggi
 
 - [ ] process / makefile to build them
 - [ ] schedulers?
+- [ ] preprocess / input params should be per cog model
 - [ ] safety_checker missing issues?

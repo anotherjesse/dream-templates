@@ -10,5 +10,8 @@ build:
     - "scipy==1.9.3"
     - "transformers==4.27.1"
     - "accelerate==0.17.1"
-
+  system_packages:
+    - ffmpeg
+    - libsm6 
+    - libxext6
 predict: "predict.py:Predictor"
