@@ -5,7 +5,6 @@ from typing import List
 import torch
 from cog import BasePredictor, Input, Path
 from diffusers import (
-    StableDiffusionPipeline,
     PNDMScheduler,
     LMSDiscreteScheduler,
     DDIMScheduler,
@@ -17,9 +16,8 @@ from diffusers import (
 )
 from diffusers.utils import load_image
 
-import settings
-import preprocess
 
+import settings
 
 class Predictor(BasePredictor):
     def setup(self):
@@ -48,7 +46,7 @@ class Predictor(BasePredictor):
     def predict(
         self,
         control_image: Path = Input(
-            description="Image to use for guidance based on canny filter",
+            description="Image to use for guidance based on scribble",
         ),
         prompt: str = Input(
             description="Input prompt",
@@ -67,12 +65,6 @@ class Predictor(BasePredictor):
             description="Height of output image. Maximum size is 1024x768 or 768x1024 because of memory limits",
             choices=[128, 256, 384, 448, 512, 576, 640, 704, 768, 832, 896, 960, 1024],
             default=512,
-        ),
-        low_threshold: int = Input(
-            description="Low threshold for canny filter", default=100
-        ),
-        high_threshold: int = Input(
-            description="High threshold for canny filter", default=200
         ),
         prompt_strength: float = Input(
             description="Prompt strength when using init image. 1.0 corresponds to full destruction of information in init image",
@@ -115,7 +107,6 @@ class Predictor(BasePredictor):
             os.unlink("control.png")
         shutil.copy(control_image, "control.png")
         image = load_image("control.png")
-        image = preprocess.canny(image, low_threshold, high_threshold)
 
         if seed is None:
             seed = int.from_bytes(os.urandom(2), "big")

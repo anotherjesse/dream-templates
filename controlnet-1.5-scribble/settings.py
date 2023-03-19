@@ -1,5 +1,5 @@
 MODEL_CACHE = "diffusers-cache"
 SAFETY_MODEL_ID = "CompVis/stable-diffusion-safety-checker"
-CONTROLNET_MODEL = "lllyasviel/sd-controlnet-canny"
+CONTROLNET_MODEL = "lllyasviel/sd-controlnet-scribble"
 BASE_MODEL_PATH = "./weights"
 
