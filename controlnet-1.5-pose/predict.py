@@ -37,8 +37,7 @@ class Predictor(BasePredictor):
 
         body_model_path = hf_hub_download(
             "lllyasviel/ControlNet",
-                "annotator/ckpts/body_pose_model.pth",
-
+            "annotator/ckpts/body_pose_model.pth",
             cache_dir=settings.MODEL_CACHE,
         )
         body_estimation = Body(body_model_path)
