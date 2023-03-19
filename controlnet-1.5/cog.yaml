@@ -5,6 +5,7 @@ build:
   python_packages:
     - "diffusers==0.14.0"
     - "opencv-contrib-python==4.6.0.66"
+    - "controlnet-aux==0.0.1"
     - "torch==2.0.0"
     - "ftfy==6.1.1"
     - "scipy==1.9.3"
