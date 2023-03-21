@@ -74,8 +74,12 @@ You can think of the build step as:
 2. unzip the weights archive to a directory called `weights`
 3. Create a Dockerfile that copies the weights to the Cog model based on the `template_version`
 
-    FROM r8.im/anotherjesse/controlnet-1.5-pose-template@sha256:0f5cfc3e2a0e86dbd141057501ba5196c7dbea94c45dab4894e6ff7d6a2cc324
-    COPY weights /src/weights
+```dockerfile
+FROM r8.im/anotherjesse/controlnet-1.5-pose-template@sha256:0f5cfc3e2a0e86dbd141057501ba5196c7dbea94c45dab4894e6ff7d6a2cc324
+
+COPY weights /src/weights
+```
+
 
 4. docker build
 
