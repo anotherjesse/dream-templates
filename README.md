@@ -23,19 +23,19 @@ Replicate added an experimental endpoint https://dreambooth-api-experimental.rep
 
 Let's take a deep dive into the JSON payload and add a couple of new fields not documented in the blog post: `notes` and `template_version`. 
 
-```
+```json
 {
-    "input": {
-        "instance_prompt": "a photo of a cjw person",
-        "class_prompt": "a photo of a person",
-        "instance_data": "https://example.com/person.zip",
-        "max_train_steps": 2000
-    },
-    "trainer_version": "cd3f925f7ab21afaef7d45224790eedbb837eeac40d22e8fefe015489ab644aa",
-    "model": "yourusername/yourmodel",
-    "notes": "notes about this dreambooth training",
-    "template_version": "0f5cfc3e2a0e86dbd141057501ba5196c7dbea94c45dab4894e6ff7d6a2cc324",
-    "webhook_completed": "https://example.com/dreambooth-webhook"
+  "input": {
+    "instance_prompt": "a photo of a cjw person",
+    "class_prompt": "a photo of a person",
+    "instance_data": "https://example.com/person.zip",
+    "max_train_steps": 2000
+  },
+  "trainer_version": "cd3f925f7ab21afaef7d45224790eedbb837eeac40d22e8fefe015489ab644aa",
+  "template_version": "0f5cfc3e2a0e86dbd141057501ba5196c7dbea94c45dab4894e6ff7d6a2cc324",
+  "model": "yourusername/yourmodel",
+  "notes": "notes about this dreambooth training",
+  "webhook_completed": "https://example.com/dreambooth-webhook"
 }
 ```
 
@@ -60,11 +60,75 @@ The only requirement is that the trainer returns an archive of the weights with 
 
 **tl;dr**: You can use any trainer you want, as long as it returns an archive of the weights with the name `output.zip`.  The trainer runs as a normal prediction on the Replicate platform, so you can use the [Replicate API](https://replicate.com/docs/reference/http) to see your training predictions.
 
+#### Step 2: Build
+
+Your training prediction produced a weights archive zip.  Now we need to build a Cog model that can load the weights and run inference.
+
+To make that step easier, you can now specify a `template_version` the same way you specified the trainer.
+
+`template_version` are models that are missing the weights.  They expect the stable diffusion weights to be added during the build step.
+
+You can think of the build step as:
+
+1. Download the weights archive
+2. unzip the weights archive to a directory called `weights`
+3. Create a Dockerfile that copies the weights to the Cog model based on the `template_version`
+
+    FROM r8.im/anotherjesse/controlnet-1.5-pose-template@sha256:0f5cfc3e2a0e86dbd141057501ba5196c7dbea94c45dab4894e6ff7d6a2cc324
+    COPY weights /src/weights
+
+4. docker build
+
+Some templates that exist on replicate.com:
+
+- [vanilla (diffusers)](https://replicate.com/anotherjesse/vanilla-template)
+- [controlnet-1.5-depth-template](https://replicate.com/anotherjesse/controlnet-1.5-depth-template)
+- [controlnet-1.5-pose-template](https://replicate.com/anotherjesse/controlnet-1.5-pose-template)
+- [controlnet-1.5-scribble-template](https://replicate.com/anotherjesse/controlnet-1.5-scribble-template)
+
+#### Step 3: Push
+
+Now we are ready to push to your `model` and add any `notes`.  
+
+This step takes a minute or so to run, after which you can use the model in your own code.
+
+After the push is complete you will have a new version of your model.  
+
+If you pass notes, those will be added to the notes section for versions of the model (see [Stable Diffusion Versions](https://replicate.com/stability-ai/stable-diffusion/versions) for an example).
+
+#### Step 4: Webhook
+
+After the build is complete, if you requested a webhook, it will be sent.
+
+You can include query parameters in the webhook URL, allowing you to pass information about the training back to your own code.
+
+The webhook contents contain the training duration as well as the model version that was created.
+
+```json
+{
+  "created_at": "2023-03-20T15:39:05.186935Z",
+  "error": null,
+  "id": "xxxxxxxxxxxxxxxxxxxxxx",
+  "input": {
+    "weights": "https://replicate.delivery/pbxt/xxxxxxxxxxxxx/output.zip"
+  },
+  "logs": null,
+  "metrics": {
+    "predict_time": 431.063869
+  },
+  "model": "yourusername/yourmodel",
+  "notes": "notes about this dreambooth training",
+  "status": "succeeded",
+  "webhook_completed": "https://xxxxxxxxxx/xxxxxxxxxx",
+  "version": "xxxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
+```
+
 ## TODO
 
 - [ ] documentation
 - [x] controlnet 1.5 canny
-- [ ] controlnet 1.5 depth
+- [x] controlnet 1.5 depth
 - [ ] controlnet 1.5 hed
 - [ ] controlnet 1.5 mlsd
 - [ ] controlnet 1.5 normal
