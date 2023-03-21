@@ -79,12 +79,16 @@ You can think of the build step as:
 
 4. docker build
 
+Except you don't have to do anything!  Replicate does all of that for you.
+
 Some templates that exist on replicate.com:
 
 - [vanilla (diffusers)](https://replicate.com/anotherjesse/vanilla-template)
 - [controlnet-1.5-depth-template](https://replicate.com/anotherjesse/controlnet-1.5-depth-template)
 - [controlnet-1.5-pose-template](https://replicate.com/anotherjesse/controlnet-1.5-pose-template)
 - [controlnet-1.5-scribble-template](https://replicate.com/anotherjesse/controlnet-1.5-scribble-template)
+
+To use a template, find the version number on the versions page.  For example, I find that the version on the [controlnet-1.5-pose-template version page](https://replicate.com/anotherjesse/controlnet-1.5-pose-template/versions) is `0f5cfc3e2a0e86dbd141057501ba5196c7dbea94c45dab4894e6ff7d6a2cc324`.
 
 #### Step 3: Push
 
