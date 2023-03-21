@@ -87,6 +87,7 @@ Except you don't have to do anything!  Replicate does all of that for you.
 Some templates that exist on replicate.com:
 
 - [vanilla (diffusers)](https://replicate.com/anotherjesse/vanilla-template)
+- [controlnet-1.5-canny-template](https://replicate.com/anotherjesse/controlnet-1.5-canny-template)
 - [controlnet-1.5-depth-template](https://replicate.com/anotherjesse/controlnet-1.5-depth-template)
 - [controlnet-1.5-pose-template](https://replicate.com/anotherjesse/controlnet-1.5-pose-template)
 - [controlnet-1.5-scribble-template](https://replicate.com/anotherjesse/controlnet-1.5-scribble-template)
