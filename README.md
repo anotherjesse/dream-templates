@@ -50,7 +50,7 @@ The `input` are the fields needed by the trainer you specify.  In the blog post,
 Looking at the [replicate/dreambooth versions](https://replicate.com/replicate/dreambooth/versions), here are links to API docs for fields used by a given trainer:
 
 - [9c41656f8ae2e3d2af4c1b46913d7467cd891f2c1c5f3d97f1142e876e63ed7a](https://replicate.com/replicate/dreambooth/versions/9c41656f8ae2e3d2af4c1b46913d7467cd891f2c1c5f3d97f1142e876e63ed7a/api#inputs) supports a `ckpt_base` - a file that start training from an existing checkpoint.
-- [cd3f925f7ab21afaef7d45224790eedbb837eeac40d22e8fefe015489ab644aa](https://replicate.com/replicate/dreambooth/versions/cd3f925f7ab21afaef7d45224790eedbb837eeac40d22e8fefe015489ab644aa/api#inputs) - supports 
+- [cd3f925f7ab21afaef7d45224790eedbb837eeac40d22e8fefe015489ab644aa](https://replicate.com/replicate/dreambooth/versions/cd3f925f7ab21afaef7d45224790eedbb837eeac40d22e8fefe015489ab644aa/api#inputs) - Dreambooth for SD1.5
 
 The Replicate trainers are opensource [github.com/replicate/dreambooth](https://github.com/replicate/dreambooth).  Which means you can help improve the trainers by submitting a pull request.
 
@@ -79,7 +79,6 @@ FROM r8.im/anotherjesse/controlnet-1.5-pose-template@sha256:0f5cfc3e2a0e86dbd141
 
 COPY weights /src/weights
 ```
-
 
 4. docker build
 
@@ -110,7 +109,13 @@ After the build is complete, if you requested a webhook, it will be sent.
 
 You can include query parameters in the webhook URL, allowing you to pass information about the training back to your own code.
 
-The webhook contents contain the training duration as well as the model version that was created.
+Included in the json payload is a lot of data, including:
+
+- `id` - the id of the training prediction
+- `status` - the status of the training: `succeeded` or `failed`
+- `metrics.predict_time` - the time it took to run the training prediction
+- `model` - the model name of the model you pushed to
+- `version` - the version of the model this training created
 
 ```json
 {
@@ -118,7 +123,10 @@ The webhook contents contain the training duration as well as the model version 
   "error": null,
   "id": "xxxxxxxxxxxxxxxxxxxxxx",
   "input": {
-    "weights": "https://replicate.delivery/pbxt/xxxxxxxxxxxxx/output.zip"
+    "instance_prompt": "a photo of a cjw person",
+    "class_prompt": "a photo of a person",
+    "instance_data": "https://example.com/person.zip",
+    "max_train_steps": 2000
   },
   "logs": null,
   "metrics": {
@@ -131,6 +139,43 @@ The webhook contents contain the training duration as well as the model version 
   "version": "xxxxxxxxxxxxxxxxxxxxxxxxxxx"
 }
 ```
+
+### Putting it all together
+
+Let's look at this request again:
+
+```json
+{
+  "input": {
+    "instance_prompt": "a photo of a cjw person",
+    "class_prompt": "a photo of a person",
+    "instance_data": "https://example.com/person.zip",
+    "max_train_steps": 2000
+  },
+  "trainer_version": "cd3f925f7ab21afaef7d45224790eedbb837eeac40d22e8fefe015489ab644aa",
+  "template_version": "0f5cfc3e2a0e86dbd141057501ba5196c7dbea94c45dab4894e6ff7d6a2cc324",
+  "model": "yourusername/yourmodel",
+  "notes": "notes about this dreambooth training",
+  "webhook_completed": "https://example.com/dreambooth-webhook"
+}
+```
+
+This says:
+
+1. Training with SD1.5
+  - use the `cd3f925f7ab21afaef7d45224790eedbb837eeac40d22e8fefe015489ab644aa` as `trainer_version`
+  - `input` is sent to the trainer as `instance_prompt`, `class_prompt`, and `instance_data` (along with any other fields that the specific trainer expects)
+  - a prediction using trainer version, input is visible there, the output will contain a weights archive
+2. Build with ControlNet 1.5 OpenPose Template
+  - use the `0f5cfc3e2a0e86dbd141057501ba5196c7dbea94c45dab4894e6ff7d6a2cc324` as `template_version`
+  - `weights` are added from the training prediction output ontop of the template
+3. Push to `model` 
+  - in this example `yourusername/yourmodel`, but yours should be your actual username and model name...
+  - `notes` are added to the version page for the model
+4. Webhook
+  - `webhook_completed` is sent when the build is complete
+  - webhook contains the training duration as well as the model version that was created
+
 
 ## TODO
 
