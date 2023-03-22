@@ -89,6 +89,7 @@ Some templates that exist on replicate.com:
 - [vanilla (diffusers)](https://replicate.com/anotherjesse/vanilla-template)
 - [controlnet-1.5-canny-template](https://replicate.com/anotherjesse/controlnet-1.5-canny-template)
 - [controlnet-1.5-depth-template](https://replicate.com/anotherjesse/controlnet-1.5-depth-template)
+- [controlnet-1.5-hed-template](https://replicate.com/anotherjesse/controlnet-1.5-hed-template)
 - [controlnet-1.5-normal-template](https://replicate.com/anotherjesse/controlnet-1.5-normal-template)
 - [controlnet-1.5-pose-template](https://replicate.com/anotherjesse/controlnet-1.5-pose-template)
 - [controlnet-1.5-scribble-template](https://replicate.com/anotherjesse/controlnet-1.5-scribble-template)
