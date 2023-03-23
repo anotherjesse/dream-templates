@@ -94,6 +94,7 @@ Some templates that exist on replicate.com:
 - [controlnet-1.5-normal-template](https://replicate.com/anotherjesse/controlnet-1.5-normal-template)
 - [controlnet-1.5-pose-template](https://replicate.com/anotherjesse/controlnet-1.5-pose-template)
 - [controlnet-1.5-scribble-template](https://replicate.com/anotherjesse/controlnet-1.5-scribble-template)
+- [controlnet-1.5-seg-template](https://replicate.com/anotherjesse/controlnet-1.5-seg-template)
 
 To use a template, find the version number on the versions page.  For example, I find that the version on the [controlnet-1.5-pose-template version page](https://replicate.com/anotherjesse/controlnet-1.5-pose-template/versions) is `0f5cfc3e2a0e86dbd141057501ba5196c7dbea94c45dab4894e6ff7d6a2cc324`.
 
@@ -191,7 +192,7 @@ This says:
 - [x] controlnet 1.5 normal
 - [x] controlnet 1.5 openpose
 - [x] controlnet 1.5 scribble
-- [ ] controlnet 1.5 seg
+- [x] controlnet 1.5 seg
 - [ ] controlnet + img2img - [community img2img support](https://github.com/huggingface/diffusers/pull/2584)
 - [ ] add [weighted prompts](https://huggingface.co/docs/diffusers/main/en/using-diffusers/weighted_prompts#how-to-do-promptweighting-in-diffusers) to everything!
 - [x] vanilla stable diffusion (txt2img, img2img)
