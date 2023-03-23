@@ -90,6 +90,7 @@ Some templates that exist on replicate.com:
 - [controlnet-1.5-canny-template](https://replicate.com/anotherjesse/controlnet-1.5-canny-template)
 - [controlnet-1.5-depth-template](https://replicate.com/anotherjesse/controlnet-1.5-depth-template)
 - [controlnet-1.5-hed-template](https://replicate.com/anotherjesse/controlnet-1.5-hed-template)
+- [controlnet-1.5-mlsd-template](https://replicate.com/anotherjesse/controlnet-1.5-mlsd-template)
 - [controlnet-1.5-normal-template](https://replicate.com/anotherjesse/controlnet-1.5-normal-template)
 - [controlnet-1.5-pose-template](https://replicate.com/anotherjesse/controlnet-1.5-pose-template)
 - [controlnet-1.5-scribble-template](https://replicate.com/anotherjesse/controlnet-1.5-scribble-template)
@@ -185,8 +186,8 @@ This says:
 - [ ] documentation
 - [x] controlnet 1.5 canny
 - [x] controlnet 1.5 depth
-- [ ] controlnet 1.5 hed
-- [ ] controlnet 1.5 mlsd
+- [x] controlnet 1.5 hed
+- [x] controlnet 1.5 mlsd
 - [x] controlnet 1.5 normal
 - [x] controlnet 1.5 openpose
 - [x] controlnet 1.5 scribble
