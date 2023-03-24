@@ -49,7 +49,15 @@ class Predictor(BasePredictor):
             cache_dir=settings.MODEL_CACHE,
             local_files_only=True,
         ).to("cuda")
-        self.pipe = StableDiffusionControlNetPipeline.from_pretrained(
+
+        self.txt2img_pipe = StableDiffusionPipeline.from_pretrained(
+            settings.BASE_MODEL_PATH,
+            torch_dtype=torch.float16,
+            cache_dir=settings.MODEL_CACHE,
+            local_files_only=True,
+        ).to("cuda")
+        
+        self.controlnetpipe = StableDiffusionControlNetPipeline.from_pretrained(
             settings.BASE_MODEL_PATH,
             controlnet=controlnet,
             torch_dtype=torch.float16,
@@ -62,6 +70,7 @@ class Predictor(BasePredictor):
         self,
         control_image: Path = Input(
             description="Image to use for guidance based on posenet",
+            default=None
         ),
         prompt: str = Input(
             description="Input prompt",
@@ -80,10 +89,6 @@ class Predictor(BasePredictor):
             description="Height of output image. Maximum size is 1024x768 or 768x1024 because of memory limits",
             choices=[128, 256, 384, 448, 512, 576, 640, 704, 768, 832, 896, 960, 1024],
             default=512,
-        ),
-        prompt_strength: float = Input(
-            description="Prompt strength when using init image. 1.0 corresponds to full destruction of information in init image",
-            default=0.8,
         ),
         num_outputs: int = Input(
             description="Number of images to output.",
@@ -120,9 +125,20 @@ class Predictor(BasePredictor):
 
         if os.path.exists("control.png"):
             os.unlink("control.png")
-        shutil.copy(control_image, "control.png")
-        image = load_image("control.png")
-        image = self.openpose(image)
+        
+        if control_image is not None:
+            print("Using ControlNet pipeline")
+            shutil.copy(control_image, "control.png")
+            image = load_image("control.png")
+            image = self.openpose(image)
+            pipe = self.controlnetpipe
+            extra_kwargs = {
+                "image": image,
+            }
+        else:
+            print("Using txt2img pipeline")
+            pipe = self.txt2img_pipe
+            extra_kwargs = {}
 
         if seed is None:
             seed = int.from_bytes(os.urandom(2), "big")
@@ -133,12 +149,11 @@ class Predictor(BasePredictor):
                 "Maximum size is 1024x768 or 768x1024 pixels, because of memory limits. Please select a lower width or height."
             )
 
-        self.pipe.scheduler = make_scheduler(scheduler, self.pipe.scheduler.config)
+        pipe.scheduler = make_scheduler(scheduler, pipe.scheduler.config)
 
         generator = torch.Generator("cuda").manual_seed(seed)
-        output = self.pipe(
+        output = pipe(
             prompt=[prompt] * num_outputs if prompt is not None else None,
-            image=image,
             negative_prompt=[negative_prompt] * num_outputs
             if negative_prompt is not None
             else None,
@@ -147,6 +162,7 @@ class Predictor(BasePredictor):
             guidance_scale=guidance_scale,
             generator=generator,
             num_inference_steps=num_inference_steps,
+            **extra_kwargs,
         )
 
         output_paths = []
