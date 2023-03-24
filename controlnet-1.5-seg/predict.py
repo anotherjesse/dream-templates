@@ -15,6 +15,7 @@ from diffusers import (
     ControlNetModel,
     StableDiffusionControlNetPipeline,
 )
+from stable_diffusion_controlnet_img2img import StableDiffusionControlNetImg2ImgPipeline
 from diffusers.utils import load_image
 from controlnet_aux.util import ade_palette
 
@@ -23,6 +24,7 @@ import settings
 from transformers import AutoImageProcessor, UperNetForSemanticSegmentation
 from PIL import Image
 import numpy as np
+
 
 class Predictor(BasePredictor):
     def setup(self):
@@ -34,9 +36,13 @@ class Predictor(BasePredictor):
             return
 
         print("loading image processor...")
-        self.image_processor = AutoImageProcessor.from_pretrained("openmmlab/upernet-convnext-small", cache_dir=settings.MODEL_CACHE)
+        self.image_processor = AutoImageProcessor.from_pretrained(
+            "openmmlab/upernet-convnext-small", cache_dir=settings.MODEL_CACHE
+        )
         print("loaded image segmentor")
-        self.image_segmentor = UperNetForSemanticSegmentation.from_pretrained("openmmlab/upernet-convnext-small", cache_dir=settings.MODEL_CACHE)
+        self.image_segmentor = UperNetForSemanticSegmentation.from_pretrained(
+            "openmmlab/upernet-convnext-small", cache_dir=settings.MODEL_CACHE
+        )
 
         controlnet = ControlNetModel.from_pretrained(
             settings.CONTROLNET_MODEL,
@@ -44,24 +50,45 @@ class Predictor(BasePredictor):
             cache_dir=settings.MODEL_CACHE,
             local_files_only=True,
         ).to("cuda")
-        self.pipe = StableDiffusionControlNetPipeline.from_pretrained(
+        self.txt2img_pipe = StableDiffusionControlNetPipeline.from_pretrained(
             settings.BASE_MODEL_PATH,
             controlnet=controlnet,
             torch_dtype=torch.float16,
             cache_dir=settings.MODEL_CACHE,
         ).to("cuda")
+
+        self.img2img_pipe = StableDiffusionControlNetImg2ImgPipeline(
+            vae=self.txt2img_pipe.vae,
+            text_encoder=self.txt2img_pipe.text_encoder,
+            tokenizer=self.txt2img_pipe.tokenizer,
+            unet=self.txt2img_pipe.unet,
+            scheduler=self.txt2img_pipe.scheduler,
+            safety_checker=self.txt2img_pipe.safety_checker,
+            feature_extractor=self.txt2img_pipe.feature_extractor,
+            controlnet=self.txt2img_pipe.controlnet,
+        )
+
         self.real = True
 
+    def load_image(self, image_path: Path):
+        if image_path is None:
+            return None
+        if os.path.exists("img.png"):
+            os.unlink("img.png")
+        shutil.copy(image_path, "img.png")
+        return load_image("img.png")
+
     def process_control(self, control_image: Path):
-        if os.path.exists("control.png"):
-            os.unlink("control.png")
-        shutil.copy(control_image, "control.png")
-        image = load_image("control.png")
+        image = self.load_image(control_image)
         pixel_values = self.image_processor(image, return_tensors="pt").pixel_values
         outputs = self.image_segmentor(pixel_values)
-        seg = self.image_processor.post_process_semantic_segmentation(outputs, target_sizes=[image.size[::-1]])[0]
+        seg = self.image_processor.post_process_semantic_segmentation(
+            outputs, target_sizes=[image.size[::-1]]
+        )[0]
 
-        color_seg = np.zeros((seg.shape[0], seg.shape[1], 3), dtype=np.uint8) # height, width, 3
+        color_seg = np.zeros(
+            (seg.shape[0], seg.shape[1], 3), dtype=np.uint8
+        )  # height, width, 3
         palette = np.array(ade_palette())
 
         for label, color in enumerate(palette):
@@ -70,12 +97,15 @@ class Predictor(BasePredictor):
         color_seg = color_seg.astype(np.uint8)
         return Image.fromarray(color_seg)
 
-
     @torch.inference_mode()
     def predict(
         self,
         control_image: Path = Input(
             description="Image to use for guidance based on segmentation",
+        ),
+        image: Path = Input(
+            description="Optional image to use for img2img",
+            default=None,
         ),
         prompt: str = Input(
             description="Input prompt",
@@ -132,8 +162,8 @@ class Predictor(BasePredictor):
         if not self.real:
             raise RuntimeError("This is a template, not a real model - add weights")
 
-        image = self.process_control(control_image)
-        
+        control_image = self.process_control(control_image)
+
         if seed is None:
             seed = int.from_bytes(os.urandom(2), "big")
         print(f"Using seed: {seed}")
@@ -143,20 +173,35 @@ class Predictor(BasePredictor):
                 "Maximum size is 1024x768 or 768x1024 pixels, because of memory limits. Please select a lower width or height."
             )
 
-        self.pipe.scheduler = make_scheduler(scheduler, self.pipe.scheduler.config)
+        if image is not None:
+            print("using img2img")
+            pipe = self.img2img_pipe
+            extra_kwargs = {
+                "controlnet_conditioning_image": control_image,
+                "image": self.load_image(image),
+                "strength": prompt_strength,
+            }
+        else:
+            print("using txt2img")
+            pipe = self.txt2img_pipe
+            extra_kwargs = {
+                "image": control_image,
+                "width": width,
+                "height": height,
+            }
+
+        pipe.scheduler = make_scheduler(scheduler, pipe.scheduler.config)
 
         generator = torch.Generator("cuda").manual_seed(seed)
-        output = self.pipe(
+        output = pipe(
             prompt=[prompt] * num_outputs if prompt is not None else None,
-            image=image,
             negative_prompt=[negative_prompt] * num_outputs
             if negative_prompt is not None
             else None,
-            width=width,
-            height=height,
             guidance_scale=guidance_scale,
             generator=generator,
             num_inference_steps=num_inference_steps,
+            **extra_kwargs,
         )
 
         output_paths = []
