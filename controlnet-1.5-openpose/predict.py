@@ -1,6 +1,6 @@
 import shutil
 import os
-from typing import List
+from typing import Iterator
 
 import settings
 
@@ -145,7 +145,7 @@ class Predictor(BasePredictor):
         num_outputs: int = Input(
             description="Number of images to output.",
             ge=1,
-            le=4,
+            le=10,
             default=1,
         ),
         num_inference_steps: int = Input(
@@ -173,7 +173,7 @@ class Predictor(BasePredictor):
         seed: int = Input(
             description="Random seed. Leave blank to randomize the seed", default=None
         ),
-    ) -> List[Path]:
+    ) -> Iterator[Path]:
         """Run a single prediction on the model"""
 
         if not self.real:
@@ -229,7 +229,7 @@ class Predictor(BasePredictor):
 
         if prompt:
             print("parsed prompt:", self.compel.parse_prompt_string(prompt))
-            prompt_embeds = self.compel([prompt] * num_outputs)
+            prompt_embeds = self.compel(prompt)
         else:
             prompt_embeds = None
 
@@ -238,35 +238,35 @@ class Predictor(BasePredictor):
                 "parsed negative prompt:",
                 self.compel.parse_prompt_string(negative_prompt),
             )
-            negative_prompt_embeds = self.compel([negative_prompt] * num_outputs)
+            negative_prompt_embeds = self.compel(negative_prompt)
         else:
             negative_prompt_embeds = None
 
-        generator = torch.Generator("cuda").manual_seed(seed)
-        output = pipe(
-            prompt_embeds=prompt_embeds,
-            negative_prompt_embeds=negative_prompt_embeds,
-            guidance_scale=guidance_scale,
-            generator=generator,
-            num_inference_steps=num_inference_steps,
-            **extra_kwargs,
-        )
+        result_count = 0
+        for idx in range(num_outputs):
+            this_seed = seed + idx
+            generator = torch.Generator("cuda").manual_seed(this_seed)
+            output = pipe(
+                prompt_embeds=prompt_embeds,
+                negative_prompt_embeds=negative_prompt_embeds,
+                guidance_scale=guidance_scale,
+                generator=generator,
+                num_inference_steps=num_inference_steps,
+                **extra_kwargs,
+            )
 
-        output_paths = []
-        for i, sample in enumerate(output.images):
-            if output.nsfw_content_detected and output.nsfw_content_detected[i]:
+            if output.nsfw_content_detected and output.nsfw_content_detected[0]:
                 continue
 
-            output_path = f"/tmp/out-{i}.png"
-            sample.save(output_path)
-            output_paths.append(Path(output_path))
+            output_path = f"/tmp/seed-{this_seed}.png"
+            output.images[0].save(output_path)
+            yield Path(output_path)
+            result_count += 1
 
-        if len(output_paths) == 0:
+        if result_count == 0:
             raise Exception(
                 f"NSFW content detected. Try running it again, or try a different prompt."
             )
-
-        return output_paths
 
 
 def make_scheduler(name, config):
