@@ -23,10 +23,6 @@ import settings
 from controlnet_aux import OpenposeDetector
 from stable_diffusion_controlnet_img2img import StableDiffusionControlNetImg2ImgPipeline
 
-# manual override to https://github.com/patrickvonplaten/controlnet_aux/pull/4
-from controlnet_aux.open_pose import Body
-from huggingface_hub import hf_hub_download
-
 
 class Predictor(BasePredictor):
     def setup(self):
@@ -38,13 +34,10 @@ class Predictor(BasePredictor):
             return
 
         print("Loading pose...")
-        body_model_path = hf_hub_download(
+        self.openpose = OpenposeDetector.from_pretrained(
             "lllyasviel/ControlNet",
-            "annotator/ckpts/body_pose_model.pth",
             cache_dir=settings.MODEL_CACHE,
         )
-        body_estimation = Body(body_model_path)
-        self.openpose = OpenposeDetector(body_estimation)
 
         print("Loading txt2img...")
         self.txt2img_pipe = StableDiffusionPipeline.from_pretrained(
@@ -103,7 +96,7 @@ class Predictor(BasePredictor):
         if image_path is None:
             return None
         # not sure why I have to copy the image, but it fails otherwise
-        # seems like a bug in cog 
+        # seems like a bug in cog
         if os.path.exists("img.png"):
             os.unlink("img.png")
         shutil.copy(image_path, "img.png")
@@ -112,7 +105,7 @@ class Predictor(BasePredictor):
     def process_control(self, control_image):
         if control_image is None:
             return None
-        
+
         return self.openpose(control_image)
 
     @torch.inference_mode()

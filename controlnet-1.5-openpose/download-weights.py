@@ -11,13 +11,11 @@ os.makedirs(settings.MODEL_CACHE)
 
 import torch
 from diffusers import ControlNetModel
-from huggingface_hub import hf_hub_download
+from controlnet_aux import OpenposeDetector
 
 
-# https://github.com/patrickvonplaten/controlnet_aux/pull/4
-hf_hub_download(
+OpenposeDetector.from_pretrained(
     "lllyasviel/ControlNet",
-    "annotator/ckpts/body_pose_model.pth",
     cache_dir=settings.MODEL_CACHE,
 )
 
