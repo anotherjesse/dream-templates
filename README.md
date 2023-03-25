@@ -96,7 +96,7 @@ Some templates that exist on replicate.com:
 - [controlnet-1.5-scribble-template](https://replicate.com/anotherjesse/controlnet-1.5-scribble-template)
 - [controlnet-1.5-seg-template](https://replicate.com/anotherjesse/controlnet-1.5-seg-template)
 
-To use a template, find the version number on the versions page.  For example, I find that the version on the [controlnet-1.5-pose-template version page](https://replicate.com/anotherjesse/controlnet-1.5-pose-template/versions) is `0f5cfc3e2a0e86dbd141057501ba5196c7dbea94c45dab4894e6ff7d6a2cc324`.
+To use a template, find the version number on the versions page.  For example, I find that the version on the [controlnet-1.5-pose-template version page](https://replicate.com/anotherjesse/controlnet-1.5-pose-template/versions) is `2e2e7231b265587fa7d1372970a7af1d6aa2ba8af5ea36cbd55f473ae84f1281`.
 
 #### Step 3: Push
 
