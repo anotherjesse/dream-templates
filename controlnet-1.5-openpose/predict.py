@@ -6,6 +6,7 @@ import torch
 from cog import BasePredictor, Input, Path
 from diffusers import (
     StableDiffusionPipeline,
+    StableDiffusionImg2ImgPipeline,
     PNDMScheduler,
     LMSDiscreteScheduler,
     DDIMScheduler,
@@ -20,6 +21,7 @@ from diffusers.utils import load_image
 import settings
 
 from controlnet_aux import OpenposeDetector
+from stable_diffusion_controlnet_img2img import StableDiffusionControlNetImg2ImgPipeline
 
 # manual override to https://github.com/patrickvonplaten/controlnet_aux/pull/4
 from controlnet_aux.open_pose import Body
@@ -29,12 +31,13 @@ from huggingface_hub import hf_hub_download
 class Predictor(BasePredictor):
     def setup(self):
         """Load the model into memory to make running multiple predictions efficient"""
-        print("Loading pipeline...")
+        print("Loading pipelines...")
 
         if not os.path.exists(settings.BASE_MODEL_PATH):
             self.real = False
             return
 
+        print("Loading pose...")
         body_model_path = hf_hub_download(
             "lllyasviel/ControlNet",
             "annotator/ckpts/body_pose_model.pth",
@@ -43,34 +46,84 @@ class Predictor(BasePredictor):
         body_estimation = Body(body_model_path)
         self.openpose = OpenposeDetector(body_estimation)
 
-        controlnet = ControlNetModel.from_pretrained(
-            settings.CONTROLNET_MODEL,
-            torch_dtype=torch.float16,
-            cache_dir=settings.MODEL_CACHE,
-            local_files_only=True,
-        ).to("cuda")
-
+        print("Loading txt2img...")
         self.txt2img_pipe = StableDiffusionPipeline.from_pretrained(
             settings.BASE_MODEL_PATH,
             torch_dtype=torch.float16,
             cache_dir=settings.MODEL_CACHE,
             local_files_only=True,
         ).to("cuda")
-        
-        self.controlnetpipe = StableDiffusionControlNetPipeline.from_pretrained(
-            settings.BASE_MODEL_PATH,
-            controlnet=controlnet,
+
+        print("Loading img2img...")
+        self.img2img_pipe = StableDiffusionImg2ImgPipeline(
+            vae=self.txt2img_pipe.vae,
+            text_encoder=self.txt2img_pipe.text_encoder,
+            tokenizer=self.txt2img_pipe.tokenizer,
+            unet=self.txt2img_pipe.unet,
+            scheduler=self.txt2img_pipe.scheduler,
+            safety_checker=self.txt2img_pipe.safety_checker,
+            feature_extractor=self.txt2img_pipe.feature_extractor,
+        )
+
+        print("Loading controlnet...")
+        controlnet = ControlNetModel.from_pretrained(
+            settings.CONTROLNET_MODEL,
             torch_dtype=torch.float16,
             cache_dir=settings.MODEL_CACHE,
+            local_files_only=True,
+        )
+
+        print("Loading controlnet txt2img...")
+        self.cnet_txt2img_pipe = StableDiffusionControlNetPipeline(
+            vae=self.txt2img_pipe.vae,
+            text_encoder=self.txt2img_pipe.text_encoder,
+            tokenizer=self.txt2img_pipe.tokenizer,
+            unet=self.txt2img_pipe.unet,
+            scheduler=self.txt2img_pipe.scheduler,
+            safety_checker=self.txt2img_pipe.safety_checker,
+            feature_extractor=self.txt2img_pipe.feature_extractor,
+            controlnet=controlnet,
         ).to("cuda")
+
+        print("Loading controlnet img2img...")
+        self.cnet_img2img_pipe = StableDiffusionControlNetImg2ImgPipeline(
+            vae=self.txt2img_pipe.vae,
+            text_encoder=self.txt2img_pipe.text_encoder,
+            tokenizer=self.txt2img_pipe.tokenizer,
+            unet=self.txt2img_pipe.unet,
+            scheduler=self.txt2img_pipe.scheduler,
+            safety_checker=self.txt2img_pipe.safety_checker,
+            feature_extractor=self.txt2img_pipe.feature_extractor,
+            controlnet=controlnet,
+        )
+
         self.real = True
+
+    def load_image(self, image_path: Path):
+        if image_path is None:
+            return None
+        # not sure why I have to copy the image, but it fails otherwise
+        # seems like a bug in cog 
+        if os.path.exists("img.png"):
+            os.unlink("img.png")
+        shutil.copy(image_path, "img.png")
+        return load_image("img.png")
+
+    def process_control(self, control_image):
+        if control_image is None:
+            return None
+        
+        return self.openpose(control_image)
 
     @torch.inference_mode()
     def predict(
         self,
         control_image: Path = Input(
-            description="Image to use for guidance based on posenet",
-            default=None
+            description="Optional Image to use for guidance based on posenet",
+            default=None,
+        ),
+        image: Path = Input(
+            description="Optional Image to use for img2img guidance", default=None
         ),
         prompt: str = Input(
             description="Input prompt",
@@ -102,6 +155,10 @@ class Predictor(BasePredictor):
         guidance_scale: float = Input(
             description="Scale for classifier-free guidance", ge=1, le=20, default=7.5
         ),
+        prompt_strength: float = Input(
+            description="Prompt strength when using init image. 1.0 corresponds to full destruction of information in init image",
+            default=0.8,
+        ),
         scheduler: str = Input(
             default="DPMSolverMultistep",
             choices=[
@@ -123,22 +180,42 @@ class Predictor(BasePredictor):
         if not self.real:
             raise RuntimeError("This is a template, not a real model - add weights")
 
-        if os.path.exists("control.png"):
-            os.unlink("control.png")
-        
-        if control_image is not None:
-            print("Using ControlNet pipeline")
-            shutil.copy(control_image, "control.png")
-            image = load_image("control.png")
-            image = self.openpose(image)
-            pipe = self.controlnetpipe
+        if image:
+            image = self.load_image(image)
+        if control_image:
+            control_image = self.load_image(control_image)
+            control_image = self.process_control(control_image)
+
+        if control_image and image:
+            print("Using ControlNet img2img")
+            pipe = self.cnet_img2img_pipe
+            extra_kwargs = {
+                "controlnet_conditioning_image": control_image,
+                "image": image,
+                "strength": prompt_strength,
+            }
+        elif control_image:
+            print("Using ControlNet txt2img")
+            pipe = self.cnet_txt2img_pipe
+            extra_kwargs = {
+                "image": control_image,
+                "width": width,
+                "height": height,
+            }
+        elif image:
+            print("Using img2img pipeline")
+            pipe = self.img2img_pipe
             extra_kwargs = {
                 "image": image,
+                "strength": prompt_strength,
             }
         else:
             print("Using txt2img pipeline")
             pipe = self.txt2img_pipe
-            extra_kwargs = {}
+            extra_kwargs = {
+                "width": width,
+                "height": height,
+            }
 
         if seed is None:
             seed = int.from_bytes(os.urandom(2), "big")
@@ -157,8 +234,6 @@ class Predictor(BasePredictor):
             negative_prompt=[negative_prompt] * num_outputs
             if negative_prompt is not None
             else None,
-            width=width,
-            height=height,
             guidance_scale=guidance_scale,
             generator=generator,
             num_inference_steps=num_inference_steps,
