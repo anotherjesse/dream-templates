@@ -2,8 +2,12 @@ import shutil
 import os
 from typing import List
 
+import settings
+
 import torch
 from cog import BasePredictor, Input, Path
+from compel import Compel
+from controlnet_aux import OpenposeDetector
 from diffusers import (
     StableDiffusionPipeline,
     StableDiffusionImg2ImgPipeline,
@@ -17,10 +21,6 @@ from diffusers import (
     StableDiffusionControlNetPipeline,
 )
 from diffusers.utils import load_image
-
-import settings
-
-from controlnet_aux import OpenposeDetector
 from stable_diffusion_controlnet_img2img import StableDiffusionControlNetImg2ImgPipeline
 
 
@@ -88,6 +88,12 @@ class Predictor(BasePredictor):
             safety_checker=self.txt2img_pipe.safety_checker,
             feature_extractor=self.txt2img_pipe.feature_extractor,
             controlnet=controlnet,
+        )
+
+        print("Loading compel...")
+        self.compel = Compel(
+            tokenizer=self.txt2img_pipe.tokenizer,
+            text_encoder=self.txt2img_pipe.text_encoder,
         )
 
         self.real = True
@@ -221,12 +227,25 @@ class Predictor(BasePredictor):
 
         pipe.scheduler = make_scheduler(scheduler, pipe.scheduler.config)
 
+        if prompt:
+            print("parsed prompt:", self.compel.parse_prompt_string(prompt))
+            prompt_embeds = self.compel([prompt] * num_outputs)
+        else:
+            prompt_embeds = None
+
+        if negative_prompt:
+            print(
+                "parsed negative prompt:",
+                self.compel.parse_prompt_string(negative_prompt),
+            )
+            negative_prompt_embeds = self.compel([negative_prompt] * num_outputs)
+        else:
+            negative_prompt_embeds = None
+
         generator = torch.Generator("cuda").manual_seed(seed)
         output = pipe(
-            prompt=[prompt] * num_outputs if prompt is not None else None,
-            negative_prompt=[negative_prompt] * num_outputs
-            if negative_prompt is not None
-            else None,
+            prompt_embeds=prompt_embeds,
+            negative_prompt_embeds=negative_prompt_embeds,
             guidance_scale=guidance_scale,
             generator=generator,
             num_inference_steps=num_inference_steps,
