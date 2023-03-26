@@ -26,26 +26,26 @@ def gen(output_fn, **kwargs):
 def main():
     gen(
         "sample.controlnet_txt2img.png",
-        prompt="painting of turtle by van gogh",
-        control_image="https://replicate.delivery/pbxt/IJE6zP4jtdwxe7SffC7te9DPHWHW99dMXED5AWamlBNcvxn0/user_1.png",
+        prompt="painting of cjw by van gogh",
+        control_image="https://huggingface.co/takuma104/controlnet_dev/resolve/main/gen_compare/control_images/converted/control_vermeer_scribble.png",
         seed=42,
     )
     gen(
         "sample.txt2img.png",
-        prompt="painting of turtle by van gogh",
+        prompt="painting of cjw by van gogh",
         seed=42
     )
     gen(
         "sample.controlnet_img2img.png",
-        prompt="painting of turtle by van gogh",
-        control_image="https://replicate.delivery/pbxt/IJE6zP4jtdwxe7SffC7te9DPHWHW99dMXED5AWamlBNcvxn0/user_1.png",
+        prompt="painting of cjw by van gogh",
+        control_image="https://huggingface.co/takuma104/controlnet_dev/resolve/main/gen_compare/control_images/converted/control_vermeer_scribble.png",
         image="https://huggingface.co/takuma104/controlnet_dev/resolve/main/gen_compare/control_images/human_512x512.png",
         seed=42
     )
     gen(
         "sample.img2img.png",
-        prompt="painting of turtle by van gogh",
-        image="https://huggingface.co/takuma104/controlnet_dev/resolve/main/gen_compare/control_images/human_512x512.png",
+        prompt="painting of cjw by van gogh",
+        image="https://huggingface.co/takuma104/controlnet_dev/resolve/main/gen_compare/control_images/vermeer_512x512.png",
         seed=42
     )
 
