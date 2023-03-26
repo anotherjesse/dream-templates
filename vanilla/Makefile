@@ -1,14 +1,11 @@
-all: canny
+all: samples
 
 
-scibble: 
-	sudo rm -rf diffusers-cache
-	cp settings-scribble.py settings.py
-	cog run python download-weights.py
-	cog push r8.im/anotherjesse/controlnet-1.5-scribble-template
+push:
+	cog push r8.im/anotherjesse/vanilla-template
 
-canny:
-	sudo rm -rf diffusers-cache
-	cp settings-canny.py settings.py
-	cog run python download-weights.py
-	cog push r8.im/anotherjesse/controlnet-1.5-canny-template
+serve:
+	cog run -p 5000 python -m cog.server.http
+
+samples:
+	python samples.py
