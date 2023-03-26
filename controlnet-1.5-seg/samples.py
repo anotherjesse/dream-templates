@@ -26,26 +26,26 @@ def gen(output_fn, **kwargs):
 def main():
     gen(
         "sample.controlnet_txt2img.png",
-        prompt="portrait of cjw by van gogh",
-        control_image="https://huggingface.co/takuma104/controlnet_dev/resolve/main/gen_compare/control_images/human_512x512.png",
+        prompt="modern bedroom with plants",
+        control_image="https://huggingface.co/takuma104/controlnet_dev/resolve/main/gen_compare/control_images/room_512x512.png",
         seed=42,
     )
     gen(
         "sample.txt2img.png",
-        prompt="portrait of cjw by van gogh",
+        prompt="modern bedroom with plants",
         seed=42
     )
     gen(
         "sample.controlnet_img2img.png",
-        prompt="portrait of cjw by van gogh",
-        control_image="https://huggingface.co/takuma104/controlnet_dev/resolve/main/gen_compare/control_images/human_512x512.png",
-        image="https://huggingface.co/takuma104/controlnet_dev/resolve/main/gen_compare/control_images/human_512x512.png",
+        prompt="modern bedroom with plants",
+        control_image="https://huggingface.co/takuma104/controlnet_dev/resolve/main/gen_compare/control_images/room_512x512.png",
+        image="https://huggingface.co/takuma104/controlnet_dev/resolve/main/gen_compare/control_images/room_512x512.png",
         seed=42
     )
     gen(
         "sample.img2img.png",
-        prompt="portrait of cjw by van gogh",
-        image="https://huggingface.co/takuma104/controlnet_dev/resolve/main/gen_compare/control_images/human_512x512.png",
+        prompt="modern bedroom with plants",
+        image="https://huggingface.co/takuma104/controlnet_dev/resolve/main/gen_compare/control_images/room_512x512.png",
         seed=42
     )
 
