@@ -5,7 +5,8 @@ build:
   python_packages:
     - "diffusers==0.14.0"
     - "opencv-contrib-python==4.6.0.66"
-    - "controlnet-aux==0.0.1"
+    - "torchvision==0.15.1"
+    - "timm==0.6.12"
     - "torch==2.0.0"
     - "ftfy==6.1.1"
     - "scipy==1.9.3"
@@ -15,4 +16,7 @@ build:
     - ffmpeg
     - libsm6 
     - libxext6
+  run:
+    - "pip install git+https://github.com/patrickvonplaten/controlnet_aux.git@dfb604120af6e5acf21936f79aecb046d0faaa29"
+    - "pip install compel==1.0.4"
 predict: "predict.py:Predictor"
