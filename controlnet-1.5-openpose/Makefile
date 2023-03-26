@@ -26,3 +26,9 @@ samples:
 		-i image=@../images/human_512x512.png \
 		-i seed=42
 	sudo mv output.0.png output.img2img.png
+	cog predict -i prompt="portrait of cjw by van gogh" \
+		-i image=@../images/dog.png \
+		-i mask=@../images/mask.png \
+		-i seed=42
+	sudo mv output.0.png output.inpainting.png
+

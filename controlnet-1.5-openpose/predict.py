@@ -11,6 +11,7 @@ from controlnet_aux import OpenposeDetector
 from diffusers import (
     StableDiffusionPipeline,
     StableDiffusionImg2ImgPipeline,
+    StableDiffusionInpaintPipelineLegacy,
     PNDMScheduler,
     LMSDiscreteScheduler,
     DDIMScheduler,
@@ -90,6 +91,17 @@ class Predictor(BasePredictor):
             controlnet=controlnet,
         )
 
+        print("Loading inpaint...")
+        self.inpainting_pipe = StableDiffusionInpaintPipelineLegacy(
+            vae=self.txt2img_pipe.vae,
+            text_encoder=self.txt2img_pipe.text_encoder,
+            tokenizer=self.txt2img_pipe.tokenizer,
+            unet=self.txt2img_pipe.unet,
+            scheduler=self.txt2img_pipe.scheduler,
+            safety_checker=self.txt2img_pipe.safety_checker,
+            feature_extractor=self.txt2img_pipe.feature_extractor,
+        )
+
         print("Loading compel...")
         self.compel = Compel(
             tokenizer=self.txt2img_pipe.tokenizer,
@@ -123,6 +135,9 @@ class Predictor(BasePredictor):
         ),
         image: Path = Input(
             description="Optional Image to use for img2img guidance", default=None
+        ),
+        mask: Path = Input(
+            description="Optional Mask to use for legacy inpainting", default=None
         ),
         prompt: str = Input(
             description="Input prompt",
@@ -184,8 +199,12 @@ class Predictor(BasePredictor):
         if control_image:
             control_image = self.load_image(control_image)
             control_image = self.process_control(control_image)
+        if mask:
+            mask = self.load_image(mask)
 
-        if control_image and image:
+        if control_image and mask:
+            raise ValueError("Cannot use controlnet and inpainting at the same time")
+        elif control_image and image:
             print("Using ControlNet img2img")
             pipe = self.cnet_img2img_pipe
             extra_kwargs = {
@@ -200,6 +219,18 @@ class Predictor(BasePredictor):
                 "image": control_image,
                 "width": width,
                 "height": height,
+            }
+        elif image and mask:
+            print("Using inpaint pipeline")
+            pipe = self.inpainting_pipe
+            # FIXME(ja): prompt/negative_prompt are sent to the inpainting pipeline
+            # because it doesn't support prompt_embeds/negative_prompt_embeds
+            extra_kwargs = {
+                "prompt": prompt,
+                "negative_prompt": negative_prompt,
+                "image": image,
+                "mask_image": mask,
+                "strength": prompt_strength,
             }
         elif image:
             print("Using img2img pipeline")
