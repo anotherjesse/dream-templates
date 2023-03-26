@@ -17,6 +17,6 @@ build:
     - libsm6 
     - libxext6
   run:
-    - "pip install git+https://github.com/anotherjesse/controlnet_aux.git@863320734eb93277c653ab084a9a54d969b63343"
-
+    - "pip install git+https://github.com/patrickvonplaten/controlnet_aux.git@dfb604120af6e5acf21936f79aecb046d0faaa29"
+    - "pip install compel==1.0.4"
 predict: "predict.py:Predictor"
