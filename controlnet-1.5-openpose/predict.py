@@ -9,17 +9,21 @@ from cog import BasePredictor, Input, Path
 from compel import Compel
 from controlnet_aux import OpenposeDetector
 from diffusers import (
+    ControlNetModel,
     StableDiffusionPipeline,
     StableDiffusionImg2ImgPipeline,
     StableDiffusionInpaintPipelineLegacy,
+    StableDiffusionControlNetPipeline,
+)
+from diffusers import (
     PNDMScheduler,
     LMSDiscreteScheduler,
     DDIMScheduler,
     EulerDiscreteScheduler,
     EulerAncestralDiscreteScheduler,
     DPMSolverMultistepScheduler,
-    ControlNetModel,
-    StableDiffusionControlNetPipeline,
+    UniPCMultistepScheduler,
+    HeunDiscreteScheduler,
 )
 from diffusers.utils import load_image
 from stable_diffusion_controlnet_img2img import StableDiffusionControlNetImg2ImgPipeline
@@ -177,11 +181,13 @@ class Predictor(BasePredictor):
             default="DPMSolverMultistep",
             choices=[
                 "DDIM",
-                "K_EULER",
                 "DPMSolverMultistep",
+                "HeunDiscrete",
                 "K_EULER_ANCESTRAL",
-                "PNDM",
+                "K_EULER",
                 "KLMS",
+                "PNDM",
+                "UniPCMultistep",
             ],
             description="Choose a scheduler.",
         ),
@@ -302,10 +308,12 @@ class Predictor(BasePredictor):
 
 def make_scheduler(name, config):
     return {
-        "PNDM": PNDMScheduler.from_config(config),
-        "KLMS": LMSDiscreteScheduler.from_config(config),
         "DDIM": DDIMScheduler.from_config(config),
-        "K_EULER": EulerDiscreteScheduler.from_config(config),
-        "K_EULER_ANCESTRAL": EulerAncestralDiscreteScheduler.from_config(config),
         "DPMSolverMultistep": DPMSolverMultistepScheduler.from_config(config),
+        "HeunDiscrete": HeunDiscreteScheduler.from_config(config),
+        "K_EULER_ANCESTRAL": EulerAncestralDiscreteScheduler.from_config(config),
+        "K_EULER": EulerDiscreteScheduler.from_config(config),
+        "KLMS": LMSDiscreteScheduler.from_config(config),
+        "PNDM": PNDMScheduler.from_config(config),
+        "UniPCMultistep": UniPCMultistepScheduler.from_config(config),
     }[name]
