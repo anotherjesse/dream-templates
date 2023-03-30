@@ -54,6 +54,8 @@ class Predictor(BasePredictor):
             local_files_only=True,
         ).to("cuda")
 
+        self.safety_checker = self.txt2img_pipe.safety_checker
+
         print("Loading img2img...")
         self.img2img_pipe = StableDiffusionImg2ImgPipeline(
             vae=self.txt2img_pipe.vae,
@@ -193,6 +195,9 @@ class Predictor(BasePredictor):
             ],
             description="Choose a scheduler.",
         ),
+        disable_safety_check: bool = Input(
+            description="Disable safety check. Use at your own risk!", default=False
+        ),
         seed: int = Input(
             description="Random seed. Leave blank to randomize the seed", default=None
         ),
@@ -283,6 +288,11 @@ class Predictor(BasePredictor):
             negative_prompt_embeds = self.compel(negative_prompt)
         else:
             negative_prompt_embeds = None
+
+        if disable_safety_check:
+            pipe.safety_checker = None
+        else:
+            pipe.safety_checker = self.safety_checker
 
         result_count = 0
         for idx in range(num_outputs):
