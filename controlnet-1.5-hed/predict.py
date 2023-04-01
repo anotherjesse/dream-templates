@@ -1,32 +1,31 @@
-import shutil
 import os
+import shutil
 from typing import Iterator
-
-import settings
 
 import torch
 from cog import BasePredictor, Input, Path
 from compel import Compel
 from diffusers import (
     ControlNetModel,
-    StableDiffusionPipeline,
+    DDIMScheduler,
+    DPMSolverMultistepScheduler,
+    EulerAncestralDiscreteScheduler,
+    EulerDiscreteScheduler,
+    HeunDiscreteScheduler,
+    LMSDiscreteScheduler,
+    PNDMScheduler,
+    StableDiffusionControlNetPipeline,
     StableDiffusionImg2ImgPipeline,
     StableDiffusionInpaintPipelineLegacy,
-    StableDiffusionControlNetPipeline,
-)
-from diffusers import (
-    PNDMScheduler,
-    LMSDiscreteScheduler,
-    DDIMScheduler,
-    EulerDiscreteScheduler,
-    EulerAncestralDiscreteScheduler,
-    DPMSolverMultistepScheduler,
+    StableDiffusionPipeline,
     UniPCMultistepScheduler,
-    HeunDiscreteScheduler,
 )
 from diffusers.utils import load_image
+
+import settings
 from stable_diffusion_controlnet_img2img import StableDiffusionControlNetImg2ImgPipeline
 from controlnet_aux import HEDdetector
+
 from PIL import Image
 import numpy as np
 
