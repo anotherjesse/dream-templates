@@ -1,30 +1,28 @@
-import shutil
 import os
+import shutil
 from typing import Iterator
-
-import settings
 
 import torch
 from cog import BasePredictor, Input, Path
 from compel import Compel
 from diffusers import (
     ControlNetModel,
-    StableDiffusionPipeline,
+    DDIMScheduler,
+    DPMSolverMultistepScheduler,
+    EulerAncestralDiscreteScheduler,
+    EulerDiscreteScheduler,
+    HeunDiscreteScheduler,
+    LMSDiscreteScheduler,
+    PNDMScheduler,
+    StableDiffusionControlNetPipeline,
     StableDiffusionImg2ImgPipeline,
     StableDiffusionInpaintPipelineLegacy,
-    StableDiffusionControlNetPipeline,
-)
-from diffusers import (
-    PNDMScheduler,
-    LMSDiscreteScheduler,
-    DDIMScheduler,
-    EulerDiscreteScheduler,
-    EulerAncestralDiscreteScheduler,
-    DPMSolverMultistepScheduler,
+    StableDiffusionPipeline,
     UniPCMultistepScheduler,
-    HeunDiscreteScheduler,
 )
 from diffusers.utils import load_image
+
+import settings
 from stable_diffusion_controlnet_img2img import StableDiffusionControlNetImg2ImgPipeline
 
 
@@ -45,6 +43,8 @@ class Predictor(BasePredictor):
             cache_dir=settings.MODEL_CACHE,
             local_files_only=True,
         ).to("cuda")
+
+        self.safety_checker = self.txt2img_pipe.safety_checker
 
         print("Loading img2img...")
         self.img2img_pipe = StableDiffusionImg2ImgPipeline(
@@ -179,6 +179,9 @@ class Predictor(BasePredictor):
             ],
             description="Choose a scheduler.",
         ),
+        disable_safety_check: bool = Input(
+            description="Disable safety check. Use at your own risk!", default=False
+        ),
         seed: int = Input(
             description="Random seed. Leave blank to randomize the seed", default=None
         ),
@@ -265,6 +268,11 @@ class Predictor(BasePredictor):
             negative_prompt_embeds = self.compel(negative_prompt)
         else:
             negative_prompt_embeds = None
+
+        if disable_safety_check:
+            pipe.safety_checker = None
+        else:
+            pipe.safety_checker = self.safety_checker
 
         result_count = 0
         for idx in range(num_outputs):
