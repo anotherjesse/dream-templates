@@ -193,9 +193,9 @@ This says:
 - [x] controlnet 1.5 openpose
 - [x] controlnet 1.5 scribble
 - [x] controlnet 1.5 seg
-- [ ] controlnet + img2img - [community img2img support](https://github.com/huggingface/diffusers/pull/2584)
-- [ ] add [weighted prompts](https://huggingface.co/docs/diffusers/main/en/using-diffusers/weighted_prompts#how-to-do-promptweighting-in-diffusers) to everything!
+- [x] controlnet + img2img - [community img2img support](https://github.com/huggingface/diffusers/pull/2584)
+- [x] add [weighted prompts](https://huggingface.co/docs/diffusers/main/en/using-diffusers/weighted_prompts#how-to-do-promptweighting-in-diffusers) to everything!
 - [x] vanilla stable diffusion (txt2img, img2img)
-- [ ] inpainting support (for which models?)
+- [x] inpainting support (for which models?)
 - [ ] t2i on top (for which models)?
 - [ ] LoRA inference on top (for all models?)
