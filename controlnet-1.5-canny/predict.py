@@ -197,6 +197,9 @@ class Predictor(BasePredictor):
         disable_safety_check: bool = Input(
             description="Disable safety check. Use at your own risk!", default=False
         ),
+        return_processed_control: bool = Input(
+            description="if using control_image, return processed control as first image", default=False
+        ),
         seed: int = Input(
             description="Random seed. Leave blank to randomize the seed", default=None
         ),
@@ -213,6 +216,10 @@ class Predictor(BasePredictor):
             control_image = self.process_control(
                 control_image, low_threshold, high_threshold
             )
+            if return_processed_control:
+                control_image.save("control.png")
+                yield Path("control.png")
+
         if mask:
             mask = self.load_image(mask)
 
