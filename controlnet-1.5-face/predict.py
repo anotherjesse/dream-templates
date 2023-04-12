@@ -132,6 +132,10 @@ class Predictor(BasePredictor):
             description="Optional Image to use for guidance based on face landmarks",
             default=None,
         ),
+        control_image_processed: Path = Input(
+            description="Optional pre-processed Image to use for guidance based on face landmarks",
+            default=None,
+        ),
         image: Path = Input(
             description="Optional Image to use for img2img guidance", default=None
         ),
@@ -203,6 +207,8 @@ class Predictor(BasePredictor):
         if control_image:
             control_image = self.load_image(control_image)
             control_image = self.process_control(control_image)
+        if control_image_processed:
+            control_image = self.load_image(control_image_processed)
         if mask:
             mask = self.load_image(mask)
 

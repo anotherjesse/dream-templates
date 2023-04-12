@@ -17,7 +17,7 @@ test_face:
 		exit 1; \
 	fi
 	cog predict -i prompt="portrait of cjw by van gogh" \
-		-i control_image=@../images/face_annotation.png
+		-i control_image_processed=@../images/face_annotation.png
 
 samples:
 	if ! test -d weights; then \
