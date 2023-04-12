@@ -1,0 +1,22 @@
+build:
+  gpu: true
+  cuda: "11.6"
+  python_version: "3.8"
+  python_packages:
+    - "diffusers==0.14.0"
+    - "opencv-contrib-python==4.6.0.66"
+    - "torchvision==0.15.1"
+    - "timm==0.6.12"
+    - "torch==2.0.0"
+    - "ftfy==6.1.1"
+    - "scipy==1.9.3"
+    - "transformers==4.27.1"
+    - "accelerate==0.17.1"
+  system_packages:
+    - ffmpeg
+    - libsm6 
+    - libxext6
+  run:
+    - "pip install git+https://github.com/patrickvonplaten/controlnet_aux.git@dfb604120af6e5acf21936f79aecb046d0faaa29"
+    - "pip install compel==1.0.4"
+predict: "predict.py:Predictor"
