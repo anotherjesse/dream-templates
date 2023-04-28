@@ -50,13 +50,11 @@ class Predictor(BasePredictor):
             torch_dtype=torch.float16,
             cache_dir=settings.MODEL_CACHE,
             local_files_only=True,
-        ).to('cuda')
+        ).to("cuda")
 
         self.loaded_weights = None
 
-
     def load_weights(self, weights):
-
         if self.loaded_weights == weights:
             print(f"weights {weights} already loaded into pipeline")
             return
@@ -67,7 +65,7 @@ class Predictor(BasePredictor):
             torch_dtype=torch.float16,
             cache_dir=settings.MODEL_CACHE,
             local_files_only=True,
-        ).to('cuda')
+        ).to("cuda")
 
         self.safety_checker = self.pipe.safety_checker
         self.loaded_weights = weights
@@ -90,7 +88,7 @@ class Predictor(BasePredictor):
             print(f"weights already exist at {destination_path}")
             self.load_weights(destination_path)
             return
-        
+
         print(f"Downloading weights for {weights}...")
 
         url = f"https://storage.googleapis.com/replicant-misc/{weights}.tar"
@@ -111,7 +109,6 @@ class Predictor(BasePredictor):
             self.load_weights(weights)
         else:
             raise Exception(f"Failed to download weights for {weights}")
-
 
     def load_image(self, image_path: Path):
         if image_path is None:
@@ -134,12 +131,11 @@ class Predictor(BasePredictor):
         image = image[:, :, None]
         image = np.concatenate([image, image, image], axis=2)
         return Image.fromarray(image)
-    
 
     def get_pipeline(self, kind):
         if kind == "txt2img":
             return self.pipe
-        
+
         if kind == "img2img":
             return StableDiffusionImg2ImgPipeline(
                 vae=self.pipe.vae,
@@ -151,41 +147,40 @@ class Predictor(BasePredictor):
                 feature_extractor=self.pipe.feature_extractor,
             )
 
-        if kind == 'cnet_txt2img':
-            return  StableDiffusionControlNetPipeline(
-            vae=self.pipe.vae,
-            text_encoder=self.pipe.text_encoder,
-            tokenizer=self.pipe.tokenizer,
-            unet=self.pipe.unet,
-            scheduler=self.pipe.scheduler,
-            safety_checker=self.pipe.safety_checker,
-            feature_extractor=self.pipe.feature_extractor,
-            controlnet=self.controlnet,
-        )
+        if kind == "cnet_txt2img":
+            return StableDiffusionControlNetPipeline(
+                vae=self.pipe.vae,
+                text_encoder=self.pipe.text_encoder,
+                tokenizer=self.pipe.tokenizer,
+                unet=self.pipe.unet,
+                scheduler=self.pipe.scheduler,
+                safety_checker=self.pipe.safety_checker,
+                feature_extractor=self.pipe.feature_extractor,
+                controlnet=self.controlnet,
+            )
 
-        if kind == 'cnet_img2img':
+        if kind == "cnet_img2img":
             return StableDiffusionControlNetImg2ImgPipeline(
-            vae=self.pipe.vae,
-            text_encoder=self.pipe.text_encoder,
-            tokenizer=self.pipe.tokenizer,
-            unet=self.pipe.unet,
-            scheduler=self.pipe.scheduler,
-            safety_checker=self.pipe.safety_checker,
-            feature_extractor=self.pipe.feature_extractor,
-            controlnet=self.controlnet,
-        )
+                vae=self.pipe.vae,
+                text_encoder=self.pipe.text_encoder,
+                tokenizer=self.pipe.tokenizer,
+                unet=self.pipe.unet,
+                scheduler=self.pipe.scheduler,
+                safety_checker=self.pipe.safety_checker,
+                feature_extractor=self.pipe.feature_extractor,
+                controlnet=self.controlnet,
+            )
 
-        if kind == 'inpaint':
+        if kind == "inpaint":
             return StableDiffusionInpaintPipelineLegacy(
-            vae=self.pipe.vae,
-            text_encoder=self.pipe.text_encoder,
-            tokenizer=self.pipe.tokenizer,
-            unet=self.pipe.unet,
-            scheduler=self.pipe.scheduler,
-            safety_checker=self.pipe.safety_checker,
-            feature_extractor=self.pipe.feature_extractor,
-        )
-
+                vae=self.pipe.vae,
+                text_encoder=self.pipe.text_encoder,
+                tokenizer=self.pipe.tokenizer,
+                unet=self.pipe.unet,
+                scheduler=self.pipe.scheduler,
+                safety_checker=self.pipe.safety_checker,
+                feature_extractor=self.pipe.feature_extractor,
+            )
 
     @torch.inference_mode()
     def predict(
@@ -274,13 +269,12 @@ class Predictor(BasePredictor):
             mask = self.load_image(mask)
         print("loading images took:", time.time() - start)
 
-
         start = time.time()
         if control_image and mask:
             raise ValueError("Cannot use controlnet and inpainting at the same time")
         elif control_image and image:
             print("Using ControlNet img2img")
-            pipe = self.get_pipeline('cnet_img2img')
+            pipe = self.get_pipeline("cnet_img2img")
             extra_kwargs = {
                 "controlnet_conditioning_image": control_image,
                 "image": image,
@@ -288,7 +282,7 @@ class Predictor(BasePredictor):
             }
         elif control_image:
             print("Using ControlNet txt2img")
-            pipe = self.get_pipeline('cnet_txt2img')
+            pipe = self.get_pipeline("cnet_txt2img")
             extra_kwargs = {
                 "image": control_image,
                 "width": width,
@@ -296,7 +290,7 @@ class Predictor(BasePredictor):
             }
         elif image and mask:
             print("Using inpaint pipeline")
-            pipe = self.get_pipeline('inpaint')
+            pipe = self.get_pipeline("inpaint")
             # FIXME(ja): prompt/negative_prompt are sent to the inpainting pipeline
             # because it doesn't support prompt_embeds/negative_prompt_embeds
             extra_kwargs = {
@@ -308,14 +302,14 @@ class Predictor(BasePredictor):
             }
         elif image:
             print("Using img2img pipeline")
-            pipe = self.get_pipeline('img2img')
+            pipe = self.get_pipeline("img2img")
             extra_kwargs = {
                 "image": image,
                 "strength": prompt_strength,
             }
         else:
             print("Using txt2img pipeline")
-            pipe = self.get_pipeline('txt2img')
+            pipe = self.get_pipeline("txt2img")
             extra_kwargs = {
                 "width": width,
                 "height": height,
