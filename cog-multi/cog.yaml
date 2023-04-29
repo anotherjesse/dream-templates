@@ -1,10 +1,9 @@
 build:
   gpu: true
   cuda: "11.6"
-  python_version: "3.8"
+  python_version: "3.10"
   python_packages:
-    - "diffusers==0.14.0"
-    - "opencv-contrib-python==4.6.0.66"
+    - "diffusers==0.15.1"
     - "torchvision==0.15.1"
     - "timm==0.6.12"
     - "torch==2.0.0"
@@ -19,4 +18,5 @@ build:
   run:
     - "pip install git+https://github.com/patrickvonplaten/controlnet_aux.git@dfb604120af6e5acf21936f79aecb046d0faaa29"
     - "pip install compel==1.0.4"
+    - "mkdir /gc && cd /gc && curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-426.0.0-linux-x86_64.tar.gz && tar -xf google-cloud-cli-426.0.0-linux-x86_64.tar.gz && ./google-cloud-sdk/install.sh -q"
 predict: "predict.py:Predictor"

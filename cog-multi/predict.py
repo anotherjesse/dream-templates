@@ -34,6 +34,7 @@ from controlnet_aux import MidasDetector
 
 from PIL import Image
 import numpy as np
+from functools import lru_cache
 
 
 class Predictor(BasePredictor):
@@ -54,41 +55,34 @@ class Predictor(BasePredictor):
 
         self.loaded_weights = None
 
+    @lru_cache(maxsize=4)
+    def get_weights(self, weights: str):
+        destination_path = self.weights_path(weights)
+        if not os.path.exists(destination_path):
+            self.download_weights(weights)
+
+        return self.load_weights(destination_path)
+
     def load_weights(self, weights):
         if self.loaded_weights == weights:
             print(f"weights {weights} already loaded into pipeline")
             return
 
-        print("Loading txt2img...")
-        self.pipe = StableDiffusionPipeline.from_pretrained(
+        print(f"Loading txt2img... {weights}")
+        return StableDiffusionPipeline.from_pretrained(
             self.weights_path(weights),
             torch_dtype=torch.float16,
             cache_dir=settings.MODEL_CACHE,
             local_files_only=True,
         ).to("cuda")
 
-        self.safety_checker = self.pipe.safety_checker
-        self.loaded_weights = weights
-
-        # FIXME(ja): we shouldn't need to do this multiple times
-        print("Loading compel...")
-        self.compel = Compel(
-            tokenizer=self.pipe.tokenizer,
-            text_encoder=self.pipe.text_encoder,
-        )
 
     def weights_path(self, weights: str):
         if not os.path.exists("/src/weights"):
             os.makedirs("/src/weights")
         return os.path.join("/src/weights", weights)
 
-    def ensure_weights(self, weights: str):
-        destination_path = self.weights_path(weights)
-        if os.path.exists(destination_path):
-            print(f"weights already exist at {destination_path}")
-            self.load_weights(destination_path)
-            return
-
+    def download_weights(self, weights: str):
         print(f"Downloading weights for {weights}...")
 
         url = f"https://storage.googleapis.com/replicant-misc/{weights}.tar"
@@ -101,14 +95,14 @@ class Predictor(BasePredictor):
             mode = "r:"
 
         if response.status_code == 200:
+            destination_path = self.weights_path(weights)
             with tarfile.open(
                 fileobj=io.BytesIO(response.content), mode=mode
             ) as tar_file:
                 tar_file.extractall(destination_path)
-
-            self.load_weights(weights)
         else:
             raise Exception(f"Failed to download weights for {weights}")
+
 
     def load_image(self, image_path: Path):
         if image_path is None:
@@ -132,54 +126,54 @@ class Predictor(BasePredictor):
         image = np.concatenate([image, image, image], axis=2)
         return Image.fromarray(image)
 
-    def get_pipeline(self, kind):
+    def get_pipeline(self, pipe, kind):
         if kind == "txt2img":
-            return self.pipe
+            return pipe
 
         if kind == "img2img":
             return StableDiffusionImg2ImgPipeline(
-                vae=self.pipe.vae,
-                text_encoder=self.pipe.text_encoder,
-                tokenizer=self.pipe.tokenizer,
-                unet=self.pipe.unet,
-                scheduler=self.pipe.scheduler,
-                safety_checker=self.pipe.safety_checker,
-                feature_extractor=self.pipe.feature_extractor,
+                vae=pipe.vae,
+                text_encoder=pipe.text_encoder,
+                tokenizer=pipe.tokenizer,
+                unet=pipe.unet,
+                scheduler=pipe.scheduler,
+                safety_checker=pipe.safety_checker,
+                feature_extractor=pipe.feature_extractor,
             )
 
         if kind == "cnet_txt2img":
             return StableDiffusionControlNetPipeline(
-                vae=self.pipe.vae,
-                text_encoder=self.pipe.text_encoder,
-                tokenizer=self.pipe.tokenizer,
-                unet=self.pipe.unet,
-                scheduler=self.pipe.scheduler,
-                safety_checker=self.pipe.safety_checker,
-                feature_extractor=self.pipe.feature_extractor,
+                vae=pipe.vae,
+                text_encoder=pipe.text_encoder,
+                tokenizer=pipe.tokenizer,
+                unet=pipe.unet,
+                scheduler=pipe.scheduler,
+                safety_checker=pipe.safety_checker,
+                feature_extractor=pipe.feature_extractor,
                 controlnet=self.controlnet,
             )
 
         if kind == "cnet_img2img":
             return StableDiffusionControlNetImg2ImgPipeline(
-                vae=self.pipe.vae,
-                text_encoder=self.pipe.text_encoder,
-                tokenizer=self.pipe.tokenizer,
-                unet=self.pipe.unet,
-                scheduler=self.pipe.scheduler,
-                safety_checker=self.pipe.safety_checker,
-                feature_extractor=self.pipe.feature_extractor,
+                vae=pipe.vae,
+                text_encoder=pipe.text_encoder,
+                tokenizer=pipe.tokenizer,
+                unet=pipe.unet,
+                scheduler=pipe.scheduler,
+                safety_checker=pipe.safety_checker,
+                feature_extractor=pipe.feature_extractor,
                 controlnet=self.controlnet,
             )
 
         if kind == "inpaint":
             return StableDiffusionInpaintPipelineLegacy(
-                vae=self.pipe.vae,
-                text_encoder=self.pipe.text_encoder,
-                tokenizer=self.pipe.tokenizer,
-                unet=self.pipe.unet,
-                scheduler=self.pipe.scheduler,
-                safety_checker=self.pipe.safety_checker,
-                feature_extractor=self.pipe.feature_extractor,
+                vae=pipe.vae,
+                text_encoder=pipe.text_encoder,
+                tokenizer=pipe.tokenizer,
+                unet=pipe.unet,
+                scheduler=pipe.scheduler,
+                safety_checker=pipe.safety_checker,
+                feature_extractor=pipe.feature_extractor,
             )
 
     @torch.inference_mode()
@@ -256,7 +250,7 @@ class Predictor(BasePredictor):
         """Run a single prediction on the model"""
 
         start = time.time()
-        self.ensure_weights(weights)
+        pipe = self.get_weights(weights)
         print("loading weights took:", time.time() - start)
 
         start = time.time()
@@ -274,7 +268,7 @@ class Predictor(BasePredictor):
             raise ValueError("Cannot use controlnet and inpainting at the same time")
         elif control_image and image:
             print("Using ControlNet img2img")
-            pipe = self.get_pipeline("cnet_img2img")
+            pipe = self.get_pipeline(pipe, "cnet_img2img")
             extra_kwargs = {
                 "controlnet_conditioning_image": control_image,
                 "image": image,
@@ -282,7 +276,7 @@ class Predictor(BasePredictor):
             }
         elif control_image:
             print("Using ControlNet txt2img")
-            pipe = self.get_pipeline("cnet_txt2img")
+            pipe = self.get_pipeline(pipe, "cnet_txt2img")
             extra_kwargs = {
                 "image": control_image,
                 "width": width,
@@ -290,7 +284,7 @@ class Predictor(BasePredictor):
             }
         elif image and mask:
             print("Using inpaint pipeline")
-            pipe = self.get_pipeline("inpaint")
+            pipe = self.get_pipeline(pipe, "inpaint")
             # FIXME(ja): prompt/negative_prompt are sent to the inpainting pipeline
             # because it doesn't support prompt_embeds/negative_prompt_embeds
             extra_kwargs = {
@@ -302,14 +296,14 @@ class Predictor(BasePredictor):
             }
         elif image:
             print("Using img2img pipeline")
-            pipe = self.get_pipeline("img2img")
+            pipe = self.get_pipeline(pipe, "img2img")
             extra_kwargs = {
                 "image": image,
                 "strength": prompt_strength,
             }
         else:
             print("Using txt2img pipeline")
-            pipe = self.get_pipeline("txt2img")
+            pipe = self.get_pipeline(pipe, "txt2img")
             extra_kwargs = {
                 "width": width,
                 "height": height,
@@ -328,25 +322,35 @@ class Predictor(BasePredictor):
 
         pipe.scheduler = make_scheduler(scheduler, pipe.scheduler.config)
 
+        # FIXME(ja): we shouldn't need to do this multiple times
+        # or perhaps we create the object each time?
+        print("Loading compel...")
+        compel = Compel(
+            tokenizer=pipe.tokenizer,
+            text_encoder=pipe.text_encoder,
+        )
+
+
         if prompt:
-            print("parsed prompt:", self.compel.parse_prompt_string(prompt))
-            prompt_embeds = self.compel(prompt)
+            print("parsed prompt:", compel.parse_prompt_string(prompt))
+            prompt_embeds = compel(prompt)
         else:
             prompt_embeds = None
 
         if negative_prompt:
             print(
                 "parsed negative prompt:",
-                self.compel.parse_prompt_string(negative_prompt),
+                compel.parse_prompt_string(negative_prompt),
             )
-            negative_prompt_embeds = self.compel(negative_prompt)
+            negative_prompt_embeds = compel(negative_prompt)
         else:
             negative_prompt_embeds = None
 
-        if disable_safety_check:
-            pipe.safety_checker = None
-        else:
-            pipe.safety_checker = self.safety_checker
+
+        # if disable_safety_check:
+        #     pipe.safety_checker = None
+        # else:
+        #     pipe.safety_checker = self.safety_checker
 
         result_count = 0
         for idx in range(num_outputs):
