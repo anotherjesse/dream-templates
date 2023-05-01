@@ -1,6 +1,6 @@
-import glob
 import os
 import shutil
+import subprocess
 from typing import Iterator
 import time
 
@@ -53,9 +53,7 @@ class Predictor(BasePredictor):
             local_files_only=True,
         ).to("cuda")
 
-        self.loaded_weights = None
-
-    @lru_cache(maxsize=4)
+    @lru_cache(maxsize=10)
     def get_weights(self, weights: str):
         destination_path = self.weights_path(weights)
         if not os.path.exists(destination_path):
@@ -64,10 +62,6 @@ class Predictor(BasePredictor):
         return self.load_weights(destination_path)
 
     def load_weights(self, weights):
-        if self.loaded_weights == weights:
-            print(f"weights {weights} already loaded into pipeline")
-            return
-
         print(f"Loading txt2img... {weights}")
         return StableDiffusionPipeline.from_pretrained(
             self.weights_path(weights),
@@ -75,7 +69,6 @@ class Predictor(BasePredictor):
             cache_dir=settings.MODEL_CACHE,
             local_files_only=True,
         ).to("cuda")
-
 
     def weights_path(self, weights: str):
         if not os.path.exists("/src/weights"):
@@ -85,24 +78,16 @@ class Predictor(BasePredictor):
     def download_weights(self, weights: str):
         print(f"Downloading weights for {weights}...")
 
-        url = f"https://storage.googleapis.com/replicant-misc/{weights}.tar"
-
-        response = requests.get(url)
-
-        if url.endswith(".tar.gz"):
-            mode = "r:gz"
-        else:
-            mode = "r:"
-
-        if response.status_code == 200:
-            destination_path = self.weights_path(weights)
-            with tarfile.open(
-                fileobj=io.BytesIO(response.content), mode=mode
-            ) as tar_file:
-                tar_file.extractall(destination_path)
-        else:
-            raise Exception(f"Failed to download weights for {weights}")
-
+        gs_url = f"gs://replicant-misc/{weights}.tar"
+        tar = f"/src/weights/{weights}.tar"
+        subprocess.check_call(
+            ["/gc/google-cloud-sdk/bin/gcloud", "storage", "cp", gs_url, tar]
+        )
+        dest = self.weights_path(weights)
+        if not os.path.exists(dest):
+            os.makedirs(dest)
+        os.system(f"tar -xvf {tar} -C {dest}")
+        os.unlink(tar)
 
     def load_image(self, image_path: Path):
         if image_path is None:
@@ -246,12 +231,21 @@ class Predictor(BasePredictor):
         seed: int = Input(
             description="Random seed. Leave blank to randomize the seed", default=None
         ),
+        info: bool = Input(
+            description="log extra information about the run", default=False
+        ),
     ) -> Iterator[Path]:
         """Run a single prediction on the model"""
 
+        if info:
+            os.system("nvidia-smi")
+            os.system("df -h")
+            os.system("free -h")
+            print(self.get_weights.cache_info())
+
         start = time.time()
         pipe = self.get_weights(weights)
-        print("loading weights took:", time.time() - start)
+        print("loading weights took: %0.2f" % (time.time() - start))
 
         start = time.time()
         if image:
@@ -261,7 +255,7 @@ class Predictor(BasePredictor):
             control_image = self.process_control(control_image)
         if mask:
             mask = self.load_image(mask)
-        print("loading images took:", time.time() - start)
+        print("loading images took: %0.2f" % (time.time() - start))
 
         start = time.time()
         if control_image and mask:
@@ -309,7 +303,7 @@ class Predictor(BasePredictor):
                 "height": height,
             }
 
-        print("loading pipeline took:", time.time() - start)
+        print("loading pipeline took: %0.2f" % (time.time() - start))
 
         if seed is None:
             seed = int.from_bytes(os.urandom(2), "big")
@@ -330,7 +324,6 @@ class Predictor(BasePredictor):
             text_encoder=pipe.text_encoder,
         )
 
-
         if prompt:
             print("parsed prompt:", compel.parse_prompt_string(prompt))
             prompt_embeds = compel(prompt)
@@ -345,7 +338,6 @@ class Predictor(BasePredictor):
             negative_prompt_embeds = compel(negative_prompt)
         else:
             negative_prompt_embeds = None
-
 
         # if disable_safety_check:
         #     pipe.safety_checker = None
