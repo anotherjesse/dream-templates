@@ -80,7 +80,7 @@ class Predictor(BasePredictor):
 
         url = f"https://storage.googleapis.com/replicant-misc/{weights}.tar"
         dest = self.weights_path(weights)
-        output = subprocess.check_output(['/src/pgettar', url,  dest, str(16)])
+        output = subprocess.check_output(['/src/pget','-x',  url,  dest, str(16)])
 
     def load_image(self, image_path: Path):
         if image_path is None:
