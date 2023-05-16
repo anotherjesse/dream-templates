@@ -9,10 +9,10 @@ import torch
 from cog import BasePredictor, Input, Path
 import io
 from compel import Compel
+import hashlib
 import requests
 import tarfile
 from diffusers import (
-    ControlNetModel,
     DDIMScheduler,
     DPMSolverMultistepScheduler,
     EulerAncestralDiscreteScheduler,
@@ -20,7 +20,6 @@ from diffusers import (
     HeunDiscreteScheduler,
     LMSDiscreteScheduler,
     PNDMScheduler,
-    StableDiffusionControlNetPipeline,
     StableDiffusionImg2ImgPipeline,
     StableDiffusionInpaintPipelineLegacy,
     StableDiffusionPipeline,
@@ -29,29 +28,14 @@ from diffusers import (
 from diffusers.utils import load_image
 
 import settings
-from stable_diffusion_controlnet_img2img import StableDiffusionControlNetImg2ImgPipeline
-from controlnet_aux import MidasDetector
 
-from PIL import Image
-import numpy as np
 from functools import lru_cache
 
 
 class Predictor(BasePredictor):
     def setup(self):
         """Load the model into memory to make running multiple predictions efficient"""
-        print("Loading midas...")
-        self.midas = MidasDetector.from_pretrained(
-            "lllyasviel/ControlNet", cache_dir=settings.MODEL_CACHE
-        )
-
-        print("Loading controlnet...")
-        self.controlnet = ControlNetModel.from_pretrained(
-            settings.CONTROLNET_MODEL,
-            torch_dtype=torch.float16,
-            cache_dir=settings.MODEL_CACHE,
-            local_files_only=True,
-        ).to("cuda")
+        pass
 
     @lru_cache(maxsize=10)
     def get_weights(self, weights: str):
@@ -61,26 +45,34 @@ class Predictor(BasePredictor):
 
         return self.load_weights(destination_path)
 
-    def load_weights(self, weights):
-        print(f"Loading txt2img... {weights}")
+    def load_weights(self, path):
+        print(f"Loading txt2img... from {path}")
         return StableDiffusionPipeline.from_pretrained(
-            self.weights_path(weights),
+            path,
             torch_dtype=torch.float16,
-            cache_dir=settings.MODEL_CACHE,
             local_files_only=True,
         ).to("cuda")
 
     def weights_path(self, weights: str):
         if not os.path.exists("/src/weights"):
             os.makedirs("/src/weights")
-        return os.path.join("/src/weights", weights)
+
+        hashed_url = hashlib.sha256(weights.encode()).hexdigest()
+        short_hash = hashed_url[:16]
+        return os.path.join("/src/weights", short_hash)
 
     def download_weights(self, weights: str):
         print(f"Downloading weights for {weights}...")
-
-        url = f"https://storage.googleapis.com/replicant-misc/{weights}.tar"
+        
         dest = self.weights_path(weights)
-        output = subprocess.check_output(['/src/pgettar', url,  dest, str(16)])
+
+        weights = weights.replace('https://replicate.delivery/pbxt/', 'https://storage.googleapis.com/replicate-files/')
+        print("using url", weights)
+        cmd = ['/src/pget', '-x', weights, dest]
+        print(" ".join(cmd))
+        start = time.time()
+        output = subprocess.check_output(cmd)
+        print("downloaded in", time.time() - start)
 
     def load_image(self, image_path: Path):
         if image_path is None:
@@ -91,18 +83,6 @@ class Predictor(BasePredictor):
             os.unlink("img.png")
         shutil.copy(image_path, "img.png")
         return load_image("img.png")
-
-    def process_control(self, control_image):
-        if control_image is None:
-            return None
-
-        depth_image, normal_image = self.midas(control_image)
-
-        # https://github.com/patrickvonplaten/controlnet_aux/issues/7
-        image = np.array(depth_image)
-        image = image[:, :, None]
-        image = np.concatenate([image, image, image], axis=2)
-        return Image.fromarray(image)
 
     def get_pipeline(self, pipe, kind):
         if kind == "txt2img":
@@ -119,30 +99,6 @@ class Predictor(BasePredictor):
                 feature_extractor=pipe.feature_extractor,
             )
 
-        if kind == "cnet_txt2img":
-            return StableDiffusionControlNetPipeline(
-                vae=pipe.vae,
-                text_encoder=pipe.text_encoder,
-                tokenizer=pipe.tokenizer,
-                unet=pipe.unet,
-                scheduler=pipe.scheduler,
-                safety_checker=pipe.safety_checker,
-                feature_extractor=pipe.feature_extractor,
-                controlnet=self.controlnet,
-            )
-
-        if kind == "cnet_img2img":
-            return StableDiffusionControlNetImg2ImgPipeline(
-                vae=pipe.vae,
-                text_encoder=pipe.text_encoder,
-                tokenizer=pipe.tokenizer,
-                unet=pipe.unet,
-                scheduler=pipe.scheduler,
-                safety_checker=pipe.safety_checker,
-                feature_extractor=pipe.feature_extractor,
-                controlnet=self.controlnet,
-            )
-
         if kind == "inpaint":
             return StableDiffusionInpaintPipelineLegacy(
                 vae=pipe.vae,
@@ -157,12 +113,8 @@ class Predictor(BasePredictor):
     @torch.inference_mode()
     def predict(
         self,
-        control_image: Path = Input(
-            description="Optional Image to use for guidance based on Midas depth",
-            default=None,
-        ),
         weights: str = Input(
-            description="Which weights to use",
+            description="URL with stablediffusion weights tar to use",
         ),
         image: Path = Input(
             description="Optional Image to use for img2img guidance", default=None
@@ -243,33 +195,12 @@ class Predictor(BasePredictor):
         start = time.time()
         if image:
             image = self.load_image(image)
-        if control_image:
-            control_image = self.load_image(control_image)
-            control_image = self.process_control(control_image)
         if mask:
             mask = self.load_image(mask)
         print("loading images took: %0.2f" % (time.time() - start))
 
         start = time.time()
-        if control_image and mask:
-            raise ValueError("Cannot use controlnet and inpainting at the same time")
-        elif control_image and image:
-            print("Using ControlNet img2img")
-            pipe = self.get_pipeline(pipe, "cnet_img2img")
-            extra_kwargs = {
-                "controlnet_conditioning_image": control_image,
-                "image": image,
-                "strength": prompt_strength,
-            }
-        elif control_image:
-            print("Using ControlNet txt2img")
-            pipe = self.get_pipeline(pipe, "cnet_txt2img")
-            extra_kwargs = {
-                "image": control_image,
-                "width": width,
-                "height": height,
-            }
-        elif image and mask:
+        if image and mask:
             print("Using inpaint pipeline")
             pipe = self.get_pipeline(pipe, "inpaint")
             # FIXME(ja): prompt/negative_prompt are sent to the inpainting pipeline
