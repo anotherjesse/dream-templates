@@ -2,6 +2,7 @@ import os
 import timeout_decorator
 import unittest
 from unittest.mock import patch, MagicMock, PropertyMock
+import subprocess
 import tempfile
 
 from weights import WeightsDownloadCache
@@ -10,7 +11,7 @@ from weights import WeightsDownloadCache
 class TestWeightsDownloadCache(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.weights = WeightsDownloadCache(min_disk_space=1, base_dir=self.temp_dir.name)
+        self.weights = WeightsDownloadCache(min_disk_free=1, base_dir=self.temp_dir.name)
 
     def tearDown(self):
         self.temp_dir.cleanup()
@@ -19,7 +20,7 @@ class TestWeightsDownloadCache(unittest.TestCase):
     @patch('shutil.disk_usage', return_value=MagicMock(free=0))
     @patch('os.makedirs')
     def test_init_creates_base_dir_if_not_exists(self, makedirs_mock, _):
-        WeightsDownloadCache(min_disk_space=1, base_dir="/src/weights")
+        WeightsDownloadCache(min_disk_free=1, base_dir="/src/weights")
         makedirs_mock.assert_called_once_with("/src/weights")
 
     @timeout_decorator.timeout(1)
@@ -28,7 +29,7 @@ class TestWeightsDownloadCache(unittest.TestCase):
     @patch('subprocess.check_output', return_value=b'Success')
     def test_download_weights_removes_least_recent_if_no_space(self, _, remove_mock, disk_usage_mock):
         # Initially, there's not enough space.
-        disk_usage_mock.return_value = MagicMock(free=1)
+        disk_usage_mock.return_value = MagicMock(free=0)
         weights_url = "some_weights_orig"
         self.weights.ensure(weights_url)
 
@@ -88,16 +89,11 @@ class TestWeightsDownloadCache(unittest.TestCase):
 
     @timeout_decorator.timeout(1)
     @patch('shutil.disk_usage')
-    @patch('shutil.rmtree')
+    @patch.object(WeightsDownloadCache, '_rm_disk')
     @patch('subprocess.check_output', return_value=b'Success')
-    def test_download_weights_removes_lru_when_not_enough_space(self, _, rmtree_mock, disk_usage_mock):
-        # Initially, there's not enough space.
-        disk_usage_mock.return_value = MagicMock(free=0)
-
-        # After removing the least recent item, there's enough space.
-        def remove_side_effect(*args, **kwargs):
-            disk_usage_mock.return_value = MagicMock(free=2)
-        rmtree_mock.side_effect = remove_side_effect
+    def test_download_weights_removes_lru_when_not_enough_space(self, _, rmdisk_mock, disk_usage_mock):
+        # Initially, there's enough space.
+        disk_usage_mock.return_value = MagicMock(free=2)
 
         # Add two items to the cache.
         weights_url1 = "weights1"
@@ -105,12 +101,37 @@ class TestWeightsDownloadCache(unittest.TestCase):
         path1 = self.weights.ensure(weights_url1)
         path2 = self.weights.ensure(weights_url2)
 
+        rmdisk_mock.assert_not_called()
+
+        disk_usage_mock.return_value = MagicMock(free=0)
+
+        # After removing the least recent item, there's enough space.
+        def remove_side_effect(*args, **kwargs):
+            disk_usage_mock.return_value = MagicMock(free=2)
+        rmdisk_mock.side_effect = remove_side_effect
+
         # Download a new item, forcing the removal of the least recent item.
         weights_url3 = "weights3"
         self.weights.ensure(weights_url3)
 
         # Check if the least recent item (path1) was removed.
-        rmtree_mock.assert_called_once_with(path1)
+        rmdisk_mock.assert_called_once_with(path1)
+
+    @timeout_decorator.timeout(1)
+    @patch('shutil.disk_usage')
+    @patch.object(WeightsDownloadCache, '_rm_disk')
+    @patch('subprocess.check_output', side_effect=subprocess.CalledProcessError(1, 'cmd'))
+    def test_download_failures_clean_up(self, _, rmdisk_mock, disk_usage_mock):
+        disk_usage_mock.return_value = MagicMock(free=2)
+        url = 'bad url'
+        path = self.weights.weights_path(url)
+
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.weights.ensure(url)
+
+        rmdisk_mock.assert_called_once_with(path)
+
+
 
 if __name__ == "__main__":
     unittest.main()
