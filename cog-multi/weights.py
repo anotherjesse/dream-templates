@@ -1,8 +1,9 @@
-import os
-import subprocess
 from collections import deque
-import shutil
 import hashlib
+import os
+import shutil
+import subprocess
+import time
 
 
 class WeightsDownloadCache:
@@ -33,6 +34,15 @@ class WeightsDownloadCache:
         """
         oldest = self.lru_paths.popleft()
         self._rm_disk(oldest)
+
+    def cache_info(self) -> str:
+        """
+        Get cache information.
+
+        :return: Cache information.
+        """
+
+        return f"Cache size: {len(self.lru_paths)}, base_dir: {self.base_dir}"
 
     def _rm_disk(self, path: str) -> None:
         """
@@ -98,6 +108,7 @@ class WeightsDownloadCache:
 
         print(f"Downloading weights: {url}")
 
+        st = time.time()
         try:
             output = subprocess.check_output(["./pget", "-x", url, dest])
             print(output)
@@ -106,3 +117,4 @@ class WeightsDownloadCache:
             print(e.output)
             self._rm_disk(dest)
             raise e
+        print(f"Downloaded weights in {time.time() - st} seconds")

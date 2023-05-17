@@ -18,8 +18,19 @@ MidasDetector.from_pretrained(
     cache_dir=settings.MODEL_CACHE,
 )
 
-ControlNetModel.from_pretrained(
+TMP_CACHE = "tmp_cache"
+
+if os.path.exists(TMP_CACHE):
+    shutil.rmtree(TMP_CACHE)
+os.makedirs(TMP_CACHE)
+
+
+cn = ControlNetModel.from_pretrained(
     settings.CONTROLNET_MODEL,
     torch_dtype=torch.float16,
-    cache_dir=settings.MODEL_CACHE,
+    cache_dir=TMP_CACHE,
 )
+cn.half()
+cn.save_pretrained(os.path.join(settings.MODEL_CACHE, 'depth'))
+
+shutil.rmtree(TMP_CACHE)

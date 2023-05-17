@@ -35,6 +35,7 @@ from controlnet_aux import MidasDetector
 from PIL import Image
 import numpy as np
 from functools import lru_cache
+from weights import WeightsDownloadCache
 
 
 class Predictor(BasePredictor):
@@ -47,40 +48,27 @@ class Predictor(BasePredictor):
 
         print("Loading controlnet...")
         self.controlnet = ControlNetModel.from_pretrained(
-            settings.CONTROLNET_MODEL,
+            os.path.join(settings.MODEL_CACHE, "depth"),
             torch_dtype=torch.float16,
-            cache_dir=settings.MODEL_CACHE,
             local_files_only=True,
         ).to("cuda")
+
+        self.weights_download_cache = WeightsDownloadCache()
+
+    def get_weights(self, weights: str):
+        url = f"https://storage.googleapis.com/replicant-misc/{weights}.tar"
+
+        path = self.weights_download_cache.ensure(url)
+        return self.gpu_weights(path)
 
     @lru_cache(maxsize=10)
-    def get_weights(self, weights: str):
-        destination_path = self.weights_path(weights)
-        if not os.path.exists(destination_path):
-            self.download_weights(weights)
-
-        return self.load_weights(destination_path)
-
-    def load_weights(self, weights):
-        print(f"Loading txt2img... {weights}")
+    def gpu_weights(self, weights_path: str):
+        print(f"Loading txt2img... {weights_path}")
         return StableDiffusionPipeline.from_pretrained(
-            self.weights_path(weights),
+            weights_path,
             torch_dtype=torch.float16,
-            cache_dir=settings.MODEL_CACHE,
             local_files_only=True,
         ).to("cuda")
-
-    def weights_path(self, weights: str):
-        if not os.path.exists("/src/weights"):
-            os.makedirs("/src/weights")
-        return os.path.join("/src/weights", weights)
-
-    def download_weights(self, weights: str):
-        print(f"Downloading weights for {weights}...")
-
-        url = f"https://storage.googleapis.com/replicant-misc/{weights}.tar"
-        dest = self.weights_path(weights)
-        output = subprocess.check_output(['/src/pget','-x',  url,  dest, str(16)])
 
     def load_image(self, image_path: Path):
         if image_path is None:
@@ -234,7 +222,8 @@ class Predictor(BasePredictor):
             os.system("nvidia-smi")
             os.system("df -h")
             os.system("free -h")
-            print(self.get_weights.cache_info())
+            print(self.gpu_weights.cache_info())
+            print(self.weights_download_cache.cache_info())
 
         start = time.time()
         pipe = self.get_weights(weights)
