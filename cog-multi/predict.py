@@ -56,7 +56,13 @@ class Predictor(BasePredictor):
         self.weights_download_cache = WeightsDownloadCache()
 
     def get_weights(self, weights: str):
-        url = f"https://storage.googleapis.com/replicant-misc/{weights}.tar"
+        if weights.startswith("https://"):
+            url = weights
+        else:
+            url = f"https://storage.googleapis.com/replicant-misc/{weights}.tar"
+
+        if 'replicate.delivery' in url:
+            url = url.replace('replicate.delivery/pbxt', 'storage.googleapis.com/replicate-files')
 
         path = self.weights_download_cache.ensure(url)
         return self.gpu_weights(path)
