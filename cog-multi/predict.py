@@ -219,10 +219,13 @@ class Predictor(BasePredictor):
         """Run a single prediction on the model"""
 
         if info:
+            print('GPU GPU GPU')
+            print(self.gpu_weights.cache_info())
             os.system("nvidia-smi")
+
+            print('DISK DISK DISK')
             os.system("df -h")
             os.system("free -h")
-            print(self.gpu_weights.cache_info())
             print(self.weights_download_cache.cache_info())
 
         start = time.time()

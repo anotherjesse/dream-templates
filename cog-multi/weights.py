@@ -22,6 +22,8 @@ class WeightsDownloadCache:
         """
         self.min_disk_free = min_disk_free
         self.base_dir = base_dir
+        self._hits = 0
+        self._misses = 0
 
         # Least Recently Used (LRU) cache for paths
         self.lru_paths = deque()
@@ -42,7 +44,7 @@ class WeightsDownloadCache:
         :return: Cache information.
         """
 
-        return f"Cache size: {len(self.lru_paths)}, base_dir: {self.base_dir}"
+        return f"CacheInfo(hits={self._hits}, misses={self._misses}, base_dir='{self.base_dir}', currsize={len(self.lru_paths)})"
 
     def _rm_disk(self, path: str) -> None:
         """
@@ -77,8 +79,10 @@ class WeightsDownloadCache:
 
         if path in self.lru_paths:
             # here we remove to re-add to the end of the LRU (marking it as recently used)
+            self._hits += 1
             self.lru_paths.remove(path)
         else:
+            self._misses += 1
             self.download_weights(url, path)
 
         self.lru_paths.append(path)  # Add file to end of cache
