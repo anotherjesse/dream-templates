@@ -330,10 +330,10 @@ class Predictor(BasePredictor):
         else:
             negative_prompt_embeds = None
 
-        # if disable_safety_check:
-        #     pipe.safety_checker = None
-        # else:
-        #     pipe.safety_checker = self.safety_checker
+        safety_checker = pipe.safety_checker
+        # remove safety checker for this run
+        if disable_safety_check:
+            pipe.safety_checker = None
 
         result_count = 0
         for idx in range(num_outputs):
@@ -356,10 +356,9 @@ class Predictor(BasePredictor):
             yield Path(output_path)
             result_count += 1
 
-        if result_count == 0:
-            raise Exception(
-                f"NSFW content detected. Try running it again, or try a different prompt."
-            )
+        # restore safety checker for next run
+        if disable_safety_check:
+            pipe.safety_checker = safety_checker
 
 
 def make_scheduler(name, config):
