@@ -106,7 +106,7 @@ class Predictor(BasePredictor):
             default=None,
         ),
         mask: Path = Input(
-            description="Mask to use for control inpainting (must be same size as control_image)", default=None
+            description="Mask to use for control inpainting", default=None
         ),
         prompt: str = Input(
             description="Input prompt",
@@ -168,9 +168,9 @@ class Predictor(BasePredictor):
             print("Using ControlNet inpaint")
             
             control_image = self.load_image(control_image)
-            control_image = control_image.resize((512, 512))
+            control_image = control_image.resize((width, height))
             mask = self.load_image(mask)
-            mask = mask.resize((512, 512))
+            mask = mask.resize((width, height))
 
             processed_control_image = self.make_inpaint_condition(
                 control_image, mask
