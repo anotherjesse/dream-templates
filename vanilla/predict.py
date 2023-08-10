@@ -153,9 +153,6 @@ class Predictor(BasePredictor):
         if not self.real:
             raise RuntimeError("This is a template, not a real model - add weights")
 
-        if not self.real:
-            raise RuntimeError("This is a template, not a real model - add weights")
-
         if image:
             image = self.load_image(image)
         if mask:
